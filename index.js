@@ -72,7 +72,7 @@ async function iniciarBot() {
 
                 // 2. Lógica de Permissão Flexível
                 const ehGrupoTeste = (nomeLimpo === 'teste'); // "$teste" vira "teste"
-                const ehAdminOuDono = temPermissao(msg);
+                const ehAdminOuDono = utils.temPermissao(msg);
                 
                 // O comando será processado se: 
                 // - For admin/dono OU 
