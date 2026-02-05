@@ -42,17 +42,23 @@ module.exports = {
     },
 
     // Converte milissegundos ou segundos em "1h 2min 3s"
-    formatarTempo(segundos) {
-        const h = Math.floor(segundos / 3600);
-        const m = Math.floor((segundos % 3600) / 60);
-        const s = Math.floor(segundos % 60);
+    // Transforma segundos em "X min e Y seg"
+    formatarTempo(segundosTotal) {
+        const m = Math.floor((segundosTotal % 3600) / 60);
+        const s = Math.floor(segundosTotal % 60);
 
-        const partes = [];
-        if (h > 0) partes.push(`${h}h`);
-        if (m > 0) partes.push(`${m}min`);
-        if (s > 0) partes.push(`${s}s`);
+        let res = "";
+        if (m > 0) res += `${m} min `;
+        res += `${s} seg`;
+        
+        return res.trim();
+    },
 
-        return partes.join(' ') || '0s';
+    // Transforma ms em algo legível (ex: para latência alta)
+    formatarLatencia(ms) {
+        if (ms < 1000) return `${ms}ms`;
+        const seg = (ms / 1000).toFixed(2);
+        return `${seg}s`;
     },
 
     // Função para limpar o cache do require e recarregar um arquivo

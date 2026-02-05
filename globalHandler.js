@@ -10,19 +10,23 @@ module.exports = {
 
         // Lista de comandos globais
         switch (comando) {
-            case 'ping':
-                // process.uptime() retorna os segundos desde que o node iniciou
+            case 'ping': {
+                // 1. Tempo de atividade do servidor (Uptime)
                 const uptimeSegundos = process.uptime();
-                const tempoAtivo = utils.formatarTempo(uptimeSegundos);
-                
-                // Calculando latência simples (opcional)
+                const tempoHumano = utils.formatarTempo(uptimeSegundos);
+
+                // 2. Latência da mensagem (Tempo de resposta)
+                // O timestamp do WhatsApp vem em segundos, convertemos para ms (* 1000)
                 const timestampMsg = msg.messageTimestamp * 1000;
-                const latencia = Date.now() - timestampMsg;
+                const latenciaMs = Date.now() - timestampMsg;
+                const latenciaHumana = utils.formatarLatencia(latenciaMs);
 
                 await sock.sendMessage(remoteJid, { 
-                    text: `🏓 *Pong!*\n\n*Tempo ativo:* ${tempoAtivo}\n*Resposta:* ${latencia}ms` 
+                    text: `🏓 *Pong!*\n\n*Resposta:* ${latenciaHumana}\n*Servidor online há:* ${tempoHumano}` 
                 }, { quoted: msg });
+                
                 return true;
+            }
 
             case 'reload':
                 // Apenas VOCÊ ou admins supremos devem poder usar este comando
