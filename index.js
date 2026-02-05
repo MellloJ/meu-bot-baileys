@@ -42,7 +42,15 @@ async function iniciarBot() {
     // 5. Ouvir Mensagens Chegando
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const msg = messages[0];
-        if (!msg.key.fromMe) return; // Processa apenas mensagens enviadas por mim (para testes)
+
+        try {
+            const metadata = await sock.groupMetadata(remoteJid);
+            const nome = metadata.subject;
+        } catch (e) {
+            console.log("Não consegui pegar o nome, talvez o bot saiu do grupo.");
+        }
+
+        if (!msg.key.fromMe && !nome == "$teste") return; // Processa apenas mensagens enviadas por mim ou no grupo de teste (para testes)
 
         if (!msg.message) return; // Se não tem conteúdo, ignora
         if (msg.key.remoteJid === 'status@broadcast') return; // Ignora status/stories
