@@ -43,10 +43,12 @@ async function iniciarBot() {
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const msg = messages[0];
 
+
         try {
             const metadata = await sock.groupMetadata(remoteJid);
             const nome = metadata.subject;
         } catch (e) {
+            const nome = "Desconhecido";
             console.log("Não consegui pegar o nome, talvez o bot saiu do grupo.");
         }
 
