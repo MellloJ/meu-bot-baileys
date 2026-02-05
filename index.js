@@ -121,6 +121,9 @@ async function iniciarBot() {
                     });
                     break;
 
+                case 'teste':
+                    await sock.sendMessage(remoteJid, { text: 'Comando de teste funcionando!' }, { quoted: msg });
+                    break;
                 default:
                     // Comando não existe
                     // await sock.sendMessage(remoteJid, { text: 'Comando não encontrado.' });
