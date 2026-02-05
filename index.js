@@ -66,27 +66,27 @@ async function iniciarBot() {
 
         if (remoteJid.endsWith('@g.us')) {
             try {
-                // Buscamos os dados do grupo PRIMEIRO
-                const metadata = await sock.groupMetadata(remoteJid);
-                const nomeLimpo = limparNomeGrupo(metadata.subject);
-
-                // 2. Lógica de Permissão Flexível
-                const ehGrupoTeste = (nomeLimpo === 'teste'); // "$teste" vira "teste"
-                const ehAdminOuDono = utils.temPermissao(msg);
+                const ehDono = utils.temPermissao(msg);
+                const ehGrupoVip = utils.grupoEhLiberado(remoteJid);
                 
-                // O comando será processado se: 
-                // - For admin/dono OU 
-                // - Estiver no grupo de teste OU 
-                // - A variável global 'liberado' for true
-                const acessoPermitido = ehAdminOuDono || ehGrupoTeste || liberado;
+                // O bot responde se:
+                // 1. Você (Dono) mandou o comando
+                // 2. O comando veio de um grupo da lista VIP (GRUPOS_LIBERADOS)
+                // 3. A variável global 'liberado' está true (opcional)
+                const podeExecutar = ehDono || ehGrupoVip || liberado;
 
-                if (!acessoPermitido) {
+                if (!podeExecutar) {
                     // Opcional: avisar que não tem permissão
                     await sock.sendMessage(remoteJid, { text: '❌ Desculpe, este comando é restrito a admins.' }, { quoted: msg });
                     return;
                 }
 
-                // 3. Processamento dos Handlers (Global e Específico)
+                // Buscamos os dados do grupo PRIMEIRO
+                const metadata = await sock.groupMetadata(remoteJid);
+                const nomeLimpo = limparNomeGrupo(metadata.subject);
+
+                // Pega informações de quem foi marcado ou de quem a mensagem responde
+                // 2. Processamento dos Handlers (Global e Específico)
                 const globalHandler = require('./globalHandler');
                 const foiExecutadoGlobal = await globalHandler.handle(sock, msg, texto, metadata, utils);
 

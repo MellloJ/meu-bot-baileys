@@ -4,6 +4,11 @@
 const ADMINS_EXTERNOS = ['5563991192094@s.whatsapp.net',];
 const MEU_NUMERO = ['5563991192094@s.whatsapp.net',];
 
+// IDs dos grupos onde o bot é liberado para QUALQUER UM usar
+const GRUPOS_LIBERADOS = [
+    '120363423834043528@g.us', // ID que você pegou com o comando $id
+];
+
 module.exports = {
     // Verifica se quem enviou tem permissão total
     temPermissao(msg) {
@@ -31,6 +36,11 @@ module.exports = {
         // Verifica na lista de participantes do grupo
         const participante = metadata.participants.find(p => p.id === usuarioId);
         return participante && (participante.admin === 'admin' || participante.admin === 'superadmin');
+    },
+
+    // Verifica se o grupo atual está na lista de liberados
+    grupoEhLiberado(remoteJid) {
+        return GRUPOS_LIBERADOS.includes(remoteJid);
     },
 
     async hidetag(sock, jid, texto, metadata) {
