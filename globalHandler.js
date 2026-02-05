@@ -12,6 +12,7 @@ module.exports = {
         const mencaoDireta = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
         const mensagemRespondida = msg.message?.extendedTextMessage?.contextInfo?.participant;
         const infoContexto = msg.message?.extendedTextMessage?.contextInfo;
+        const participanteCitado = mensagemRespondida?.participant;
 
         // Lista de comandos globais
         switch (comando) {
@@ -113,6 +114,59 @@ module.exports = {
             case 'regras':
                 const regras = metadata.desc || "O grupo não possui descrição/regras definidas.";
                 await sock.sendMessage(remoteJid, { text: `📋 *REGRAS DO GRUPO:*\n\n${regras}` }, { quoted: msg });
+                return true;
+
+            case 'kill':
+                if (!utils.isAdmin(msg, metadata) && !utils.temPermissao(msg)) return true;
+
+                const alvoKill = participanteCitado || mencaoDireta;
+                if (!alvoKill) {
+                    return await sock.sendMessage(remoteJid, { text: "⚠️ Marque alguém ou responda a mensagem de quem deseja eliminar!" });
+                }
+
+                try {
+                    await sock.groupParticipantsUpdate(remoteJid, [alvoKill], "remove");
+                    utils.setUltimoRemovido(alvoKill); // Salva para o comando $add
+                    await sock.sendMessage(remoteJid, { text: "🎯 Alvo eliminado com sucesso! 💀" });
+                } catch (e) {
+                    await sock.sendMessage(remoteJid, { text: "❌ Erro ao eliminar: Certifique-se de que sou admin." });
+                }
+                return true;
+
+            case 'add':
+                if (!utils.isAdmin(msg, metadata)) return true;
+
+                let alvoAdd = "";
+
+                if (participanteCitado) {
+                    alvoAdd = participanteCitado;
+                } else if (conteudo.length > 5) {
+                    alvoAdd = utils.formatarNumero(conteudo);
+                } else if (utils.getUltimoRemovido()) {
+                    alvoAdd = utils.getUltimoRemovido();
+                    await sock.sendMessage(remoteJid, { text: "🔄 Trazendo de volta o último eliminado..." });
+                }
+
+                if (!alvoAdd) {
+                    return await sock.sendMessage(remoteJid, { text: "⚠️ Digite o número ou responda a mensagem de quem deseja adicionar." });
+                }
+
+                try {
+                    await sock.groupParticipantsUpdate(remoteJid, [alvoAdd], "add");
+                    await sock.sendMessage(remoteJid, { text: "✅ Alvo reabilitado e adicionado ao grupo!" });
+                } catch (e) {
+                    await sock.sendMessage(remoteJid, { text: "❌ Não consegui adicionar. O número pode ser inválido ou a pessoa restringiu quem pode adicioná-la." });
+                }
+                return true;
+
+            case 'dono':
+                const infoDono = `👑 *DESENVOLVEDOR DO BOT*\n\n` +
+                                 `Olá! Este bot foi criado com dedicação por *Jotta*.\n\n` +
+                                 `🤖 *Agradecimento:* "Obrigado por me dar vida! Fico feliz em automatizar seus grupos."\n\n` +
+                                 `📞 *Contato do dono:* +55 63 99119-2094\n` +
+                                 `🌐 *GitHub:* github.com/MellloJ`;
+                
+                await sock.sendMessage(remoteJid, { text: infoDono }, { quoted: msg });
                 return true;
 
             // Adicione novos comandos globais aqui embaixo facilmente

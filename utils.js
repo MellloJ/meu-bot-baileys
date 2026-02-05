@@ -9,6 +9,8 @@ const GRUPOS_LIBERADOS = [
     '120363423834043528@g.us', // ID que você pegou com o comando $id
 ];
 
+let ultimoRemovido = null;
+
 module.exports = {
     // Verifica se quem enviou tem permissão total
     temPermissao(msg) {
@@ -78,8 +80,23 @@ module.exports = {
         return require(caminho);
     },
 
+    setUltimoRemovido(id) {
+        ultimoRemovido = id;
+    },
+
+    getUltimoRemovido() {
+        return ultimoRemovido;
+    },
+
+    // Limpa o número digitado para o formato do WhatsApp
+    formatarNumero(texto) {
+        let num = texto.replace(/\D/g, ''); // Remove tudo que não é número
+        if (!num.startsWith('55')) num = '55' + num; // Adiciona o código do Brasil se não tiver
+        return num + '@s.whatsapp.net';
+    },
+
     // Você pode adicionar outras funções comuns aqui
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    // delay(ms) {
+    //     return new Promise(resolve => setTimeout(resolve, ms));
+    // }
 };
