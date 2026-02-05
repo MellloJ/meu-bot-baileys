@@ -68,7 +68,7 @@ async function iniciarBot() {
         const autorizado = utils.temPermissao(msg);
         
         // Se você quiser que o bot responda APENAS a você e aos admins:
-        if (!autorizado || liberado) {
+        if (!autorizado || !liberado) {
             // Opcional: enviar mensagem de erro
             // await sock.sendMessage(remoteJid, { text: "❌ Você não tem permissão para usar este bot." }, { quoted: msg });
             return; 
