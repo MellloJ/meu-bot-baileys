@@ -61,57 +61,46 @@ async function iniciarBot() {
         const remoteJid = msg.key.remoteJid;
         const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
         
-        // 1. Verificação Global: É um comando?
+        // 1. Verificação Global: É um comando? (Mudamos para startsWith('$'))
         if (!texto.startsWith('$')) return;
 
-        // 2. Verificação de Permissão: Esse usuário pode usar o bot?
-        const autorizado = utils.temPermissao(msg);
-        
-        // Se você quiser que o bot responda APENAS a você e aos admins:
-        if (!autorizado && !liberado) {
-            // Opcional: enviar mensagem de erro
-            // await sock.sendMessage(remoteJid, { text: "❌ Você não tem permissão para usar este bot." }, { quoted: msg });
-            return; 
-        }
-
         if (remoteJid.endsWith('@g.us')) {
-            const comandoBase = texto.split(' ')[0].toLowerCase();
-
-            // Se o comando for $reload, limpamos o cache de tudo
-            if (comandoBase === '$reload' && msg.key.fromMe) {
-                utils.recarregarModulo('./globalHandler');
-                // Você também pode limpar o cache de todos os arquivos na pasta grupos se quiser
-                await sock.sendMessage(remoteJid, { text: "✅ Módulos recarregados com sucesso!" });
-                return;
-            }
-
             try {
+                // Buscamos os dados do grupo PRIMEIRO
                 const metadata = await sock.groupMetadata(remoteJid);
-                // const nomeLimpo = limparNomeGrupo(metadata.subject);
-                const globalHandler = require('./globalHandler');
+                const nomeLimpo = limparNomeGrupo(metadata.subject);
 
+                // 2. Lógica de Permissão Flexível
+                const ehGrupoTeste = (nomeLimpo === 'teste'); // "$teste" vira "teste"
+                const ehAdminOuDono = temPermissao(msg);
+                
+                // O comando será processado se: 
+                // - For admin/dono OU 
+                // - Estiver no grupo de teste OU 
+                // - A variável global 'liberado' for true
+                const acessoPermitido = ehAdminOuDono || ehGrupoTeste || liberado;
+
+                if (!acessoPermitido) {
+                    // Opcional: avisar que não tem permissão
+                    await sock.sendMessage(remoteJid, { text: '❌ Desculpe, este comando é restrito a admins.' }, { quoted: msg });
+                    return;
+                }
+
+                // 3. Processamento dos Handlers (Global e Específico)
+                const globalHandler = require('./globalHandler');
                 const foiExecutadoGlobal = await globalHandler.handle(sock, msg, texto, metadata, utils);
 
-                // Tenta carregar o handler do grupo
-                // 2. Se NÃO foi um comando global, aí procuramos o arquivo específico do grupo
                 if (!foiExecutadoGlobal) {
-                    const nomeLimpo = limparNomeGrupo(metadata.subject);
                     try {
                         const handlerEspecifico = require(`./grupos/${nomeLimpo}`);
                         await handlerEspecifico.handle(sock, msg, texto, metadata, utils);
                     } catch (err) {
-                        // Se não houver handler específico, tenta o padrão
                         try {
                             const padrao = require('./grupos/padrao');
                             await padrao.handle(sock, msg, texto, metadata, utils);
-                        } catch (e) {
-                            // Se nem o padrão existir, não faz nada
-                        }
+                        } catch (e) {}
                     }
                 }
-
-                // 3. Chama o handler passando as funções de utils se precisar
-                handler.handle(sock, msg, texto, metadata, utils);
                 
             } catch (e) {
                 console.error("Erro no fluxo principal:", e);

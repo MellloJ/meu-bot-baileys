@@ -8,6 +8,11 @@ module.exports = {
         const comando = args.shift().toLowerCase().substring(1); // Remove o '!'
         const conteudo = args.join(" ");
 
+        // Pega informações de quem foi marcado ou de quem a mensagem responde
+        const mencaoDireta = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
+        const mensagemRespondida = msg.message?.extendedTextMessage?.contextInfo?.participant;
+        const infoContexto = msg.message?.extendedTextMessage?.contextInfo;
+
         // Lista de comandos globais
         switch (comando) {
             case 'ping': {
@@ -42,7 +47,56 @@ module.exports = {
                 }
                 return true;
 
+            case 'id':
+                // Trava de segurança: apenas quem temPermissao pode usar
+                if (!utils.temPermissao(msg)) return true;
+
+                let idRetorno = "";
+                let alvo = "";
+
+                if (mencaoDireta) {
+                    idRetorno = mencaoDireta;
+                    alvo = "do usuário mencionado";
+                } else if (mensagemRespondida) {
+                    idRetorno = mensagemRespondida;
+                    alvo = "da pessoa que você respondeu";
+                } else {
+                    idRetorno = remoteJid;
+                    alvo = "deste grupo";
+                }
+
+                await sock.sendMessage(remoteJid, { 
+                    text: `🆔 *ID ${alvo}:*\n\n\`${idRetorno}\`` 
+                }, { quoted: msg });
+                return true;
+
             case 'hidetag':
+                // Verifica se é admin ou dono
+                if (!utils.isAdmin(msg, metadata) && !utils.temPermissao(msg)) {
+                    await sock.sendMessage(remoteJid, { text: "❌ Sem permissão." });
+                    return true;
+                }
+
+                const participantes = metadata.participants.map(p => p.id);
+                
+                // Se a pessoa estiver respondendo a uma mensagem
+                if (infoContexto?.quotedMessage) {
+                    // Pega o conteúdo da mensagem respondida (texto simples)
+                    const textoCitado = infoContexto.quotedMessage.conversation || 
+                                      infoContexto.quotedMessage.extendedTextMessage?.text;
+
+                    await sock.sendMessage(remoteJid, { 
+                        text: textoCitado || "📢 Atenção!", 
+                        mentions: participantes 
+                    });
+                } else {
+                    // Se não estiver respondendo, usa o conteúdo escrito após o comando
+                    await sock.sendMessage(remoteJid, { 
+                        text: conteudo || "📢 Atenção!", 
+                        mentions: participantes 
+                    });
+                }
+                return true;
             case 'aviso':
                 // if (utils.isAdmin(msg, metadata) || utils.temPermissao(msg)) {
                 if (utils.temPermissao(msg)) {
