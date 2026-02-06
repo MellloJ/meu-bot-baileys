@@ -3,7 +3,7 @@ const Command = require('../core/Command');
 // const yt = require('../../services/YouTubeService');
 // const lyrics = require('../../services/LyricsService');
 
-const YouTubeService = require('../services/YouTubeService');
+const YouTubeService = require('../../services/YouTubeService');
 const yts = require('yt-search');
 
 class PlayCommand extends Command {
