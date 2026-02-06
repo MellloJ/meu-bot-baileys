@@ -12,7 +12,7 @@ class ConfigCommand extends AdminCommand {
         const { args, conteudo } = context;
         const subComando = args[0]?.toLowerCase();
 
-        const config = groupManager.getConfig(remoteJid);
+        const config = groupManager.getGroupConfig(remoteJid);
 
         switch (subComando) {
             case 'link':

@@ -60,7 +60,7 @@ async function iniciarBot() {
 
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
-        const config = groupManager.getConfig(id);
+        const config = groupManager.getGroupConfig(id);
 
         if (action === 'add' && config.funcoesExtras?.autoBemVindo) {
             const msgPadrao = `👋 Bem-vindo(a) ao grupo *${config.nome}*! Use $help para ver meus comandos.`;
@@ -94,7 +94,7 @@ async function iniciarBot() {
 
         if (remoteJid.endsWith('@g.us')) {
             try {
-                const config = groupManager.getConfig(remoteJid);
+                const config = groupManager.getGroupConfig(remoteJid);
 
                 // --- LÓGICA DO FILTRO DE LINKS ---
                 if (config.funcoesExtras?.filtroLinks && texto.includes('http')) {
