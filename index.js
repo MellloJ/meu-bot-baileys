@@ -57,6 +57,23 @@ async function iniciarBot() {
     // 4. Salvar as credenciais sempre que atualizarem
     sock.ev.on('creds.update', saveCreds);
 
+    sock.ev.on('group-participants.update', async (update) => {
+        const { id, participants, action } = update;
+        const config = groupManager.getConfig(id);
+
+        if (action === 'add' && config.funcoesExtras?.autoBemVindo) {
+            const msgPadrao = `👋 Bem-vindo(a) ao grupo *${config.nome}*! Use $help para ver meus comandos.`;
+            
+            // Se existir mensagem customizada, usa ela. Se não, usa a padrão.
+            const textoFinal = config.funcoesExtras.mensagemBemVindo || msgPadrao;
+
+            await sock.sendMessage(id, { 
+                text: textoFinal,
+                mentions: participants 
+            });
+        }
+    });
+
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const msg = messages[0];
         if (!msg.message) return;
@@ -76,6 +93,20 @@ async function iniciarBot() {
 
         if (remoteJid.endsWith('@g.us')) {
             try {
+                const config = groupManager.getConfig(remoteJid);
+
+                // --- LÓGICA DO FILTRO DE LINKS ---
+                if (config.funcoesExtras?.filtroLinks && texto.includes('http')) {
+                    const metadata = await sock.groupMetadata(remoteJid);
+                    const isAdmin = metadata.participants.find(p => p.id === msg.key.participant)?.admin;
+
+                    if (!isAdmin) {
+                        // 1. Apaga a mensagem
+                        await sock.sendMessage(remoteJid, { delete: msg.key });
+                        // 2. Avisa ou dá o castigo
+                        return await sock.sendMessage(remoteJid, { text: "🚫 Links não são permitidos neste grupo!" });
+                    }
+                }
                 // const ehDono = utils.temPermissao(msg);
                 // const ehGrupoVip = utils.grupoEhLiberado(remoteJid);
                 
