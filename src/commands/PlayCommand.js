@@ -1,19 +1,20 @@
 const Command = require('../core/Command');
-const YouTubeService = require('../../services/YouTubeService');
+const AudioDownloader = require('../../services/AudioDownloader');
 const yts = require('yt-search');
 
 class PlayCommand extends Command {
+
     constructor() {
-        super('play', 'Baixa músicas apenas com o nome. Ex: $play Despacito');
+        super('play', 'Baixa músicas pelo nome');
     }
 
-    async execute(sock, msg, context, metadata, utils) {
+    async execute(sock, msg, context) {
 
         const { remoteJid } = msg.key;
         const { conteudo } = context;
 
         if (!conteudo) {
-            return await sock.sendMessage(remoteJid, {
+            return sock.sendMessage(remoteJid, {
                 text: "⚠️ Digite o nome da música!"
             });
         }
@@ -35,7 +36,7 @@ class PlayCommand extends Command {
 
             if (video.seconds > 600) {
                 return sock.sendMessage(remoteJid, {
-                    text: "❌ Vídeo muito longo para envio."
+                    text: "❌ Vídeo muito longo."
                 });
             }
 
@@ -43,11 +44,11 @@ class PlayCommand extends Command {
                 text: "⬇️ Baixando áudio..."
             });
 
-            const stream = await YouTubeService.getAudioStream(video.url);
+            const stream = await AudioDownloader.getAudioStream(video.url);
 
             await sock.sendMessage(remoteJid, {
                 audio: stream,
-                mimetype: 'audio/mp4',
+                mimetype: 'audio/ogg',
                 ptt: false,
                 contextInfo: {
                     externalAdReply: {
@@ -55,18 +56,17 @@ class PlayCommand extends Command {
                         body: video.author.name,
                         thumbnailUrl: video.thumbnail,
                         sourceUrl: video.url,
-                        mediaType: 1,
-                        renderLargerThumbnail: true
+                        mediaType: 1
                     }
                 }
             }, { quoted: msg });
 
-        } catch (e) {
+        } catch (error) {
 
-            console.error("Erro no PlayCommand:", e);
+            console.error("[PlayCommand]", error);
 
             await sock.sendMessage(remoteJid, {
-                text: "❌ Serviço temporariamente indisponível."
+                text: "❌ Não consegui baixar essa música agora."
             });
         }
     }
