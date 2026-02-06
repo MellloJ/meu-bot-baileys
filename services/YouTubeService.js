@@ -5,18 +5,24 @@ const ffmpegPath = require('ffmpeg-static');
 class YouTubeService {
     async getAudioStream(url) {
         try {
-            // O yt-dlp-exec retorna uma promessa que resolve para um processo
-            // Usamos a flag 'stdio' para capturar o stream
             const subprocess = ytDlp.exec(url, {
                 extractAudio: true,
-                audioFormat: 'mp3',
+                audioFormat: 'mp3', // MP3 é mais aceito universalmente no Baileys para conversão
                 output: '-',
-                ffmpegLocation: ffmpegPath, // Usa o ffmpeg estático que instalamos
-            }, { stdio: ['ignore', 'pipe', 'ignore'] });
+                ffmpegLocation: ffmpegPath,
+                // Adicionamos argumentos para garantir que o stream seja contínuo
+                addHeader: [
+                    'referer:https://www.youtube.com/',
+                    'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+                ]
+            }, { stdio: ['ignore', 'pipe', 'pipe'] }); // Capturamos o erro também para debug
 
-            return subprocess.stdout; // Retorna o stream de áudio
+            // Se houver erro no processo do yt-dlp, logamos
+            subprocess.stderr.on('data', (data) => console.log(`[yt-dlp-stderr]: ${data}`));
+
+            return subprocess.stdout; 
         } catch (error) {
-            console.error("Erro no YouTubeService (yt-dlp-exec):", error.message);
+            console.error("Erro no YouTubeService:", error.message);
             return null;
         }
     }

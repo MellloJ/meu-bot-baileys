@@ -6,12 +6,21 @@ const Command = require('../core/Command');
 const YouTubeService = require('../../services/YouTubeService');
 const yts = require('yt-search');
 
+const streamToBuffer = async (stream) => {
+    const chunks = [];
+    for await (const chunk of stream) {
+        chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+};
+
 class PlayCommand extends Command {
     constructor() {
         super('play', 'Busca e envia música com letra e capa');
     }
 
     async execute(sock, msg, context, metadata, utils) {
+        
         const { remoteJid } = msg.key;
         const { conteudo } = context;
 
@@ -39,15 +48,21 @@ class PlayCommand extends Command {
             console.log(`[PLAY] Vídeo encontrado: ${video.title}. Solicitando stream...`);
 
             // 3. Obtém o Stream
+            // const stream = await YouTubeService.getAudioStream(video.url);
             const stream = await YouTubeService.getAudioStream(video.url);
 
-            if (!stream) {
-                throw new Error("O YouTubeService retornou um stream vazio ou nulo.");
-            }
+            if (!stream) throw new Error("Falha ao iniciar stream.");
+
+            // if (!stream) {
+            //     throw new Error("O YouTubeService retornou um stream vazio ou nulo.");
+            // }
+
+            // 1. Convertemos o stream em Buffer (mais estável para o WhatsApp)
+            const audioBuffer = await streamToBuffer(stream);
 
             // 4. Envia para o WhatsApp (Apenas UMA vez)
             await sock.sendMessage(remoteJid, {
-                audio: { stream },
+                audio: audioBuffer,
                 mimetype: 'audio/mp4',
                 ptt: false
             }, { quoted: msg });
