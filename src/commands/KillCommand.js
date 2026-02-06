@@ -1,4 +1,4 @@
-const AdminCommands = require('../core/AdminCommandss');
+const AdminCommands = require("./AdminCommands");
 
 class KillCommand extends AdminCommands {
     constructor() {
