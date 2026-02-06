@@ -49,18 +49,22 @@ class PlayCommand extends Command {
 
             // 3. Obtém o Stream
             // const stream = await YouTubeService.getAudioStream(video.url);
+            // const stream = await YouTubeService.getAudioStream(video.url);
+            // Dentro do seu PlayCommand.js
             const stream = await YouTubeService.getAudioStream(video.url);
 
-            if (!stream) throw new Error("Falha ao iniciar stream.");
+            // Função para converter stream em Buffer
+            const chunks = [];
+            for await (const chunk of stream) {
+                chunks.push(chunk);
+            }
+            const audioBuffer = Buffer.concat(chunks);
 
-            // if (!stream) {
-            //     throw new Error("O YouTubeService retornou um stream vazio ou nulo.");
-            // }
+            // Se o buffer estiver quase vazio (menos de 10kb), houve erro de bloqueio
+            if (audioBuffer.length < 10000) {
+                throw new Error("O YouTube bloqueou a descarga. Verifique os cookies.");
+            }
 
-            // 1. Convertemos o stream em Buffer (mais estável para o WhatsApp)
-            const audioBuffer = await streamToBuffer(stream);
-
-            // 4. Envia para o WhatsApp (Apenas UMA vez)
             await sock.sendMessage(remoteJid, {
                 audio: audioBuffer,
                 mimetype: 'audio/mp4',

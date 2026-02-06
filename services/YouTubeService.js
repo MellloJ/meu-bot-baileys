@@ -1,24 +1,29 @@
 // src/services/YouTubeService.js
 const ytDlp = require('yt-dlp-exec');
 const ffmpegPath = require('ffmpeg-static');
+const path = require('path');
 
 class YouTubeService {
     async getAudioStream(url) {
         try {
+            // Caminho para o seu arquivo de cookies
+            const cookiesPath = path.join(__dirname, '../src/cookies.txt');
+
             const subprocess = ytDlp.exec(url, {
                 extractAudio: true,
-                audioFormat: 'mp3', // MP3 é mais aceito universalmente no Baileys para conversão
+                audioFormat: 'mp3',
                 output: '-',
                 ffmpegLocation: ffmpegPath,
-                // Adicionamos argumentos para garantir que o stream seja contínuo
+                // SOLUÇÃO DOS ERROS:
+                cookies: cookiesPath, // Passa o arquivo de cookies
+                jsOptions: 'node',     // Resolve o aviso de JavaScript runtime
                 addHeader: [
                     'referer:https://www.youtube.com/',
                     'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
                 ]
-            }, { stdio: ['ignore', 'pipe', 'pipe'] }); // Capturamos o erro também para debug
+            }, { stdio: ['ignore', 'pipe', 'pipe'] });
 
-            // Se houver erro no processo do yt-dlp, logamos
-            subprocess.stderr.on('data', (data) => console.log(`[yt-dlp-stderr]: ${data}`));
+            subprocess.stderr.on('data', (data) => console.log(`[yt-dlp-debug]: ${data}`));
 
             return subprocess.stdout; 
         } catch (error) {
