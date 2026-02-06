@@ -4,27 +4,27 @@ const ytdl = require('@distube/ytdl-core');
 class YouTubeService {
     async getAudioStream(url) {
         try {
-            // Verifica se a URL é válida antes de processar
-            if (!ytdl.validateURL(url)) {
-                throw new Error("URL do YouTube inválida.");
-            }
+            // Pega o cookie das variáveis de ambiente
+            const cookie = process.env.YT_COOKIE;
 
-            // O pulo do gato para o Render: 
-            // Pedimos apenas o áudio com a menor qualidade aceitável (128kbps)
-            // para economizar RAM e CPU.
-            return ytdl(url, {
+            const options = {
                 filter: 'audioonly',
                 quality: 'highestaudio',
-                highWaterMark: 1 << 25 // Buffer de 32MB para evitar quedas no stream
-            });
+                highWaterMark: 1 << 25,
+                requestOptions: {
+                    headers: {
+                        // O segredo está aqui: passar o cookie e um User-Agent real
+                        'Cookie': cookie,
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
+                }
+            };
+
+            return ytdl(url, options);
         } catch (error) {
             console.error("Erro no YouTubeService:", error.message);
             return null;
         }
-    }
-
-    async getInfo(url) {
-        return await ytdl.getBasicInfo(url);
     }
 }
 
