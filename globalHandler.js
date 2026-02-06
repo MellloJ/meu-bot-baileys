@@ -36,7 +36,7 @@ module.exports = {
 
             case 'reload':
                 // Apenas VOCÊ ou admins supremos devem poder usar este comando
-                if (msg.key.fromMe) {
+                if (utils.temPermissao(msg)) {
                     try {
                         // O index.js vai lidar com o recarregamento geral, 
                         // mas podemos avisar aqui que o sinal foi recebido
@@ -72,6 +72,7 @@ module.exports = {
                 return true;
 
             case 'hidetag':
+                
                 // Verifica se é admin ou dono
                 if (!utils.isAdmin(msg, metadata) && !utils.temPermissao(msg)) {
                     await sock.sendMessage(remoteJid, { text: "❌ Sem permissão." });

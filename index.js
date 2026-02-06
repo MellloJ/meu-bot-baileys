@@ -2,6 +2,9 @@ const { makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whis
 const pino = require('pino');
 const qrcode = require('qrcode-terminal'); // Biblioteca para mostrar o QR no terminal
 const utils = require('./utils'); // Importa as funções comuns
+const config = require('./config'); // Importa as configurações do bot
+
+// Variável global para controle de acesso liberado
 
 const liberado = true ; // Muda para 'false' para restringir o bot a admins apenas
 
@@ -64,16 +67,32 @@ async function iniciarBot() {
         // 1. Verificação Global: É um comando? (Mudamos para startsWith('$'))
         if (!texto.startsWith('$')) return;
 
+        // 2. FILTRO DE SEGURANÇA (Config.js + Utils.js)
+        // Se não puder responder, o código morre aqui mesmo.
+        if (!utils.podeResponder(remoteJid, msg)) {
+            console.log(`[BLOQUEADO] Comando ignorado no grupo/chat: ${remoteJid}`);
+            return;
+        }
+
         if (remoteJid.endsWith('@g.us')) {
             try {
-                const ehDono = utils.temPermissao(msg);
-                const ehGrupoVip = utils.grupoEhLiberado(remoteJid);
+                // const ehDono = utils.temPermissao(msg);
+                // const ehGrupoVip = utils.grupoEhLiberado(remoteJid);
                 
                 // O bot responde se:
                 // 1. Você (Dono) mandou o comando
                 // 2. O comando veio de um grupo da lista VIP (GRUPOS_LIBERADOS)
                 // 3. A variável global 'liberado' está true (opcional)
-                const podeExecutar = ehDono || ehGrupoVip || liberado;
+                // const podeExecutar = ehDono || ehGrupoVip || liberado;
+
+                const ehDono = utils.ehSuperAdmin(msg);
+                const ehGrupoVip = config.GRUPOS_AUTORIZADOS.includes(remoteJid);
+                const ehGrupoPlus = utils.ehGrupoPlus(remoteJid); // Nova checagem
+
+                // O bot responde se: For dono, ou grupo VIP, ou grupo PLUS, ou se o status for 'TODOS'
+                const podeExecutar = ehDono || ehGrupoVip || ehGrupoPlus || (config.STATUS_BOT === 'TODOS');
+
+                if (!podeExecutar) return;
 
                 if (!podeExecutar) {
                     // Opcional: avisar que não tem permissão

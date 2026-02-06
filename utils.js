@@ -1,4 +1,5 @@
 // utils.js
+const config = require('./config');
 
 // Lista de números que são "Super Admins" (coloque o número com o código do país)
 const ADMINS_EXTERNOS = ['5563991192094@s.whatsapp.net',];
@@ -29,13 +30,59 @@ module.exports = {
     },
 
     // Verifica se é admin do grupo ou se é você
-    isAdmin(msg, metadata) {
-        const usuarioId = msg.key.participant || msg.key.remoteJid;
+    // isAdmin(msg, metadata) {
+    //     const usuarioId = msg.key.participant || msg.key.remoteJid;
         
-        // Se for você, sempre retorna true
-        if (msg.key.fromMe || usuarioId === MEU_NUMERO) return true;
+    //     // Se for você, sempre retorna true
+    //     if (msg.key.fromMe || usuarioId === MEU_NUMERO) return true;
 
-        // Verifica na lista de participantes do grupo
+    //     // Verifica na lista de participantes do grupo
+    //     const participante = metadata.participants.find(p => p.id === usuarioId);
+    //     return participante && (participante.admin === 'admin' || participante.admin === 'superadmin');
+    // },
+
+    ehSuperAdmin(msg) {
+        const usuarioId = msg.key.participant || msg.key.remoteJid;
+        return msg.key.fromMe || config.SUPER_ADMINS.includes(usuarioId);
+    },
+
+    // A GRANDE VALIDAÇÃO
+    podeResponder(remoteJid, msg) {
+        // 1. Se for Super Admin, ignora qualquer trava e responde sempre
+        if (this.ehSuperAdmin(msg)) return true;
+
+        // 2. Se o bot estiver totalmente desativado
+        if (config.STATUS_BOT === 'DESATIVADO') return false;
+
+        // 3. Se for mensagem privada (DM), você decide se libera ou não
+        if (!remoteJid.endsWith('@g.us') && config.RESPONDER_PV) return true; 
+
+        // 4. Lógica de Grupos
+        if (config.STATUS_BOT === 'TODOS') return true;
+
+        if (config.STATUS_BOT === 'APENAS_LISTA') {
+            return config.GRUPOS_AUTORIZADOS.includes(remoteJid);
+        }
+
+        return false;
+    },
+
+    ehGrupoPlus(remoteJid) {
+        return config.GRUPOS_PLUS.includes(remoteJid);
+    },
+
+    // Mantém sua função isAdmin para comandos de moderação ($kill, $hidetag)
+    isAdmin(msg, metadata) {
+        const remoteJid = msg.key.remoteJid;
+        const usuarioId = msg.key.participant || remoteJid;
+
+        // 1. Se for Super Admin, é admin em tudo
+        if (this.ehSuperAdmin(msg)) return true;
+
+        // 2. SE O GRUPO FOR PLUS, TODOS SÃO ADMINS
+        if (this.ehGrupoPlus(remoteJid)) return true;
+
+        // 3. Verificação normal de administrador do WhatsApp
         const participante = metadata.participants.find(p => p.id === usuarioId);
         return participante && (participante.admin === 'admin' || participante.admin === 'superadmin');
     },
