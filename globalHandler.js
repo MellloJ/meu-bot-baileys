@@ -17,7 +17,7 @@ module.exports = {
             participanteCitado: msg.message?.extendedTextMessage?.contextInfo?.participant
         };
 
-        const config = groupManager.getConfig(remoteJid);
+        const config = groupManager.getGroupConfig(remoteJid);
 
         // 1. Verifica Comandos Customizados do Grupo
         if (config.customCommands?.[cmdName]) {

@@ -27,17 +27,27 @@ class GroupManager {
 
     getGroupConfig(jid) {
         const configPath = path.join(this.basePath, `${jid}.js`);
+        let config;
 
         if (fs.existsSync(configPath)) {
-            // IMPORTANTE: Limpa o cache do require para ler a alteração do disco
             delete require.cache[require.resolve(configPath)];
-            return require(configPath);
+            config = require(configPath);
+        } else {
+            config = this.getDefaultConfig(jid);
+            this.saveConfig(jid, config);
         }
 
-        // Se não existir, cria o arquivo padrão para o grupo
-        const defaultConfig = this.getDefaultConfig(jid);
-        this.saveConfig(jid, defaultConfig);
-        return defaultConfig;
+        // --- TRUQUE DE CLEAN CODE: DEFAULTS ---
+        // Isso garante que se você adicionou uma função nova ao bot, 
+        // os grupos antigos recebam essa propriedade sem quebrar
+        return {
+            ...this.getDefaultConfig(jid), // Carrega tudo que é obrigatório
+            ...config,                     // Sobrescreve com o que está no arquivo
+            funcoesExtras: {
+                ...this.getDefaultConfig(jid).funcoesExtras,
+                ...config.funcoesExtras
+            }
+        };
     }
 
     saveConfig(jid, config) {
