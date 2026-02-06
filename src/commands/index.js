@@ -1,4 +1,4 @@
-const { hidetag } = require('../../utils');
+const { hidetag } = require('../utils');
 
 module.exports = {
     ping: require('./PingCommand'),

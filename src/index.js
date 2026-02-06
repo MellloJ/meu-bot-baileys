@@ -1,7 +1,7 @@
 const { makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal'); // Biblioteca para mostrar o QR no terminal
-const utils = require('../utils'); // Importa as funções comuns
+const utils = require('./utils'); // Importa as funções comuns
 const config = require('./config'); // Importa as configurações do bot
 const groupManager = require('./services/GroupManager');
 
