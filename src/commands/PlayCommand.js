@@ -8,7 +8,7 @@ class PlayCommand extends Command {
         super('play', 'Busca e envia música com letra e capa');
     }
 
-    async execute(sock, msg, args, metadata, utils) {
+    async execute(sock, msg, context, metadata, utils) {
         // const query = args.join(" ");
         // if (!query) return sock.sendMessage(msg.key.remoteJid, { text: "Qual música?" });
 
