@@ -17,16 +17,27 @@ class PlayCommand extends Command {
 
         try {
             // 1. Busca o vídeo
+            // const r = await yts(conteudo);
+            // const video = r.videos[0];
+            // if (!video) return sock.sendMessage(remoteJid, { text: "❌ Vídeo não encontrado." });
+
             const r = await yts(conteudo);
             const video = r.videos[0];
-            if (!video) return sock.sendMessage(remoteJid, { text: "❌ Vídeo não encontrado." });
 
-            await sock.sendMessage(remoteJid, { text: `⏳ Processando: *${video.title}*...` });
+            // Limite de 10 minutos (600 segundos) para proteger o Render Free
+            if (video.seconds > 600) {
+                return await sock.sendMessage(remoteJid, { text: "❌ Vídeo muito longo! O limite é de 10 minutos." });
+            }
 
-            // 2. Obtém o Stream de áudio
             const stream = await YouTubeService.getAudioStream(video.url);
 
-            if (!stream) throw new Error("Não foi possível gerar o stream.");
+            if (!stream) throw new Error("Falha ao iniciar stream com yt-dlp");
+
+            await sock.sendMessage(remoteJid, {
+                audio: { stream },
+                mimetype: 'audio/mp4',
+                ptt: false
+            }, { quoted: msg });
 
             // 3. Envia diretamente para o WhatsApp
             // O Render não sofre aqui pois o arquivo não é salvo no disco

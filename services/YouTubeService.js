@@ -1,28 +1,29 @@
 // src/services/YouTubeService.js
-const ytdl = require('@distube/ytdl-core');
+const { spawn } = require('child_process');
 
 class YouTubeService {
     async getAudioStream(url) {
         try {
-            // Pega o cookie das variáveis de ambiente
-            const cookie = process.env.YT_COOKIE;
+            // Parâmetros do yt-dlp:
+            // -x: extrair áudio
+            // --audio-format mp3: formato de saída
+            // -o -: envia o resultado para o 'stdout' (stream) em vez de salvar em arquivo
+            const process = spawn('yt-dlp', [
+                '-x',
+                '--audio-format', 'mp3',
+                '--audio-quality', '128K',
+                '--no-playlist',
+                '--ignore-errors',
+                '--no-warnings',
+                '-o', '-', // Output para o console
+                url
+            ]);
 
-            const options = {
-                filter: 'audioonly',
-                quality: 'highestaudio',
-                highWaterMark: 1 << 25,
-                requestOptions: {
-                    headers: {
-                        // O segredo está aqui: passar o cookie e um User-Agent real
-                        'Cookie': cookie,
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    }
-                }
-            };
+            // Retornamos o fluxo de saída (stdout) para o Baileys consumir
+            return process.stdout;
 
-            return ytdl(url, options);
         } catch (error) {
-            console.error("Erro no YouTubeService:", error.message);
+            console.error("Erro fatal no YouTubeService:", error.message);
             return null;
         }
     }
