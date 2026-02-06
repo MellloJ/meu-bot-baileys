@@ -1,6 +1,6 @@
-const AddCommand = require("./AddCommand");
+const AdminCommands = require("./AdminCommands");
 
-class HidetagCommand extends AddCommand {
+class HidetagCommand extends AdminCommands {
     constructor() {
         super('hidetag', 'Marca todos os membros do grupo sem mencionar diretamente (Admin apenas)');
     }
