@@ -15,41 +15,48 @@ class PlayCommand extends Command {
         const { remoteJid } = msg.key;
         const { conteudo } = context;
 
-        try {
-            // 1. Busca o vídeo
-            // const r = await yts(conteudo);
-            // const video = r.videos[0];
-            // if (!video) return sock.sendMessage(remoteJid, { text: "❌ Vídeo não encontrado." });
+        if (!conteudo) {
+            return await sock.sendMessage(remoteJid, { text: "⚠️ Digite o nome da música! Ex: *$play Linkin Park*" });
+        }
 
+        try {
+            console.log(`[PLAY] Iniciando busca para: ${conteudo}`);
+            await sock.sendMessage(remoteJid, { text: "🔍 Buscando música e preparando áudio..." }, { quoted: msg });
+
+            // 1. Busca o vídeo
             const r = await yts(conteudo);
             const video = r.videos[0];
 
-            // Limite de 10 minutos (600 segundos) para proteger o Render Free
-            if (video.seconds > 600) {
-                return await sock.sendMessage(remoteJid, { text: "❌ Vídeo muito longo! O limite é de 10 minutos." });
+            if (!video) {
+                return await sock.sendMessage(remoteJid, { text: "❌ Não encontrei nenhum vídeo com esse nome." });
             }
 
+            // 2. Valida duração
+            if (video.seconds > 600) {
+                return await sock.sendMessage(remoteJid, { text: "❌ O vídeo é muito longo (máximo 10 min)." });
+            }
+
+            console.log(`[PLAY] Vídeo encontrado: ${video.title}. Solicitando stream...`);
+
+            // 3. Obtém o Stream
             const stream = await YouTubeService.getAudioStream(video.url);
 
-            if (!stream) throw new Error("Falha ao iniciar stream com yt-dlp");
+            if (!stream) {
+                throw new Error("O YouTubeService retornou um stream vazio ou nulo.");
+            }
 
+            // 4. Envia para o WhatsApp (Apenas UMA vez)
             await sock.sendMessage(remoteJid, {
                 audio: { stream },
                 mimetype: 'audio/mp4',
                 ptt: false
             }, { quoted: msg });
 
-            // 3. Envia diretamente para o WhatsApp
-            // O Render não sofre aqui pois o arquivo não é salvo no disco
-            await sock.sendMessage(remoteJid, {
-                audio: { stream },
-                mimetype: 'audio/mp4',
-                ptt: false // mude para true se quiser que envie como "gravando áudio"
-            }, { quoted: msg });
+            console.log(`[PLAY] Áudio enviado com sucesso para ${remoteJid}`);
 
         } catch (e) {
-            console.error(e);
-            await sock.sendMessage(remoteJid, { text: "❌ Erro ao processar áudio. Tente novamente." });
+            console.error("Erro no PlayCommand:", e);
+            await sock.sendMessage(remoteJid, { text: `❌ Erro: ${e.message}` });
         }
     }
 }
