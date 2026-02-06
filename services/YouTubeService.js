@@ -10,7 +10,8 @@ class YouTubeService {
             console.log("[YouTube] Obtendo stream...");
 
             const stream = await play.stream(url, {
-                quality: 2
+                quality: 2,
+                client: "ANDROID"
             });
 
             return stream.stream;
