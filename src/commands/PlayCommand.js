@@ -9,10 +9,22 @@ class PlayCommand extends Command {
     }
 
     async execute(sock, msg, args, metadata, utils) {
-        const query = args.join(" ");
-        if (!query) return sock.sendMessage(msg.key.remoteJid, { text: "Qual música?" });
+        // const query = args.join(" ");
+        // if (!query) return sock.sendMessage(msg.key.remoteJid, { text: "Qual música?" });
 
-        const video = await yt.search(query);
+        const { args, conteudo } = context;
+
+        // Se o globalHandler já fez o join, use 'conteudo'
+        // Se quiser fazer manualmente, garanta que args existe:
+        const busca = conteudo || (args && args.length > 0 ? args.join(" ") : null);
+
+        if (!busca) {
+            return await sock.sendMessage(msg.key.remoteJid, { 
+                text: "⚠️ Digite o nome da música ou link! Ex: *$play Linkin Park*" 
+            });
+        }
+
+        const video = await yt.search(busca);
         const [url, letra] = await Promise.all([
             yt.getDownloadUrl(video.url),
             lyrics.find(video.title)
