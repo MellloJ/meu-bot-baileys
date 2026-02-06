@@ -1,82 +1,70 @@
-// commands/PlayCommand.js
+// src/commands/PlayCommand.js
 const Command = require('../core/Command');
-// const yt = require('../../services/YouTubeService');
-// const lyrics = require('../../services/LyricsService');
-
 const YouTubeService = require('../../services/YouTubeService');
 const yts = require('yt-search');
 
-const streamToBuffer = async (stream) => {
-    const chunks = [];
-    for await (const chunk of stream) {
-        chunks.push(chunk);
-    }
-    return Buffer.concat(chunks);
-};
-
 class PlayCommand extends Command {
     constructor() {
-        super('play', 'Busca e envia música com letra e capa');
+        super('play', 'Baixa músicas apenas com o nome. Ex: $play Despacito');
     }
 
     async execute(sock, msg, context, metadata, utils) {
-        
         const { remoteJid } = msg.key;
         const { conteudo } = context;
 
         if (!conteudo) {
-            return await sock.sendMessage(remoteJid, { text: "⚠️ Digite o nome da música! Ex: *$play Linkin Park*" });
+            return await sock.sendMessage(remoteJid, { text: "⚠️ Digite o nome da música!" });
         }
 
         try {
-            console.log(`[PLAY] Iniciando busca para: ${conteudo}`);
-            await sock.sendMessage(remoteJid, { text: "🔍 Buscando música e preparando áudio..." }, { quoted: msg });
+            await sock.sendMessage(remoteJid, { text: "🔍 Buscando..." }, { quoted: msg });
 
-            // 1. Busca o vídeo
+            // 1. Busca o vídeo no YouTube (apenas para pegar a URL correta)
             const r = await yts(conteudo);
             const video = r.videos[0];
 
-            if (!video) {
-                return await sock.sendMessage(remoteJid, { text: "❌ Não encontrei nenhum vídeo com esse nome." });
-            }
+            if (!video) return sock.sendMessage(remoteJid, { text: "❌ Música não encontrada." });
 
-            // 2. Valida duração
             if (video.seconds > 600) {
-                return await sock.sendMessage(remoteJid, { text: "❌ O vídeo é muito longo (máximo 10 min)." });
+                return await sock.sendMessage(remoteJid, { text: "❌ Vídeo muito longo para envio." });
             }
 
-            console.log(`[PLAY] Vídeo encontrado: ${video.title}. Solicitando stream...`);
+            // 2. Pede para a API externa gerar o link de download
+            console.log(`[PLAY] Gerando link para: ${video.title}`);
+            const downloadUrl = await YouTubeService.getDownloadUrl(video.url);
 
-            // 3. Obtém o Stream
-            // const stream = await YouTubeService.getAudioStream(video.url);
-            // const stream = await YouTubeService.getAudioStream(video.url);
-            // Dentro do seu PlayCommand.js
-            const stream = await YouTubeService.getAudioStream(video.url);
-
-            // Função para converter stream em Buffer
-            const chunks = [];
-            for await (const chunk of stream) {
-                chunks.push(chunk);
-            }
-            const audioBuffer = Buffer.concat(chunks);
-
-            // Se o buffer estiver quase vazio (menos de 10kb), houve erro de bloqueio
-            if (audioBuffer.length < 10000) {
-                throw new Error("O YouTube bloqueou a descarga. Verifique os cookies.");
+            if (!downloadUrl) {
+                throw new Error("Falha na API externa. Tente novamente.");
             }
 
+            // 3. Baixa o arquivo real para enviar
+            const audioBuffer = await YouTubeService.getAudioBuffer(downloadUrl);
+
+            if (!audioBuffer) throw new Error("Falha ao baixar o arquivo de áudio.");
+
+            // 4. Envia
             await sock.sendMessage(remoteJid, {
                 audio: audioBuffer,
                 mimetype: 'audio/mp4',
-                ptt: false
+                ptt: false,
+                // Opcional: Adiciona metadados visuais (capa)
+                contextInfo: {
+                    externalAdReply: {
+                        title: video.title,
+                        body: video.author.name,
+                        thumbnailUrl: video.thumbnail,
+                        sourceUrl: video.url,
+                        mediaType: 1,
+                        renderLargerThumbnail: true
+                    }
+                }
             }, { quoted: msg });
-
-            console.log(`[PLAY] Áudio enviado com sucesso para ${remoteJid}`);
 
         } catch (e) {
             console.error("Erro no PlayCommand:", e);
-            await sock.sendMessage(remoteJid, { text: `❌ Erro: ${e.message}` });
+            await sock.sendMessage(remoteJid, { text: "❌ Serviço temporariamente indisponível. Tente mais tarde." });
         }
     }
 }
+
 module.exports = new PlayCommand();

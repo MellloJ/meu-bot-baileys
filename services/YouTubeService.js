@@ -1,33 +1,46 @@
 // src/services/YouTubeService.js
-const ytDlp = require('yt-dlp-exec');
-const ffmpegPath = require('ffmpeg-static');
-const path = require('path');
+const axios = require('axios');
 
 class YouTubeService {
-    async getAudioStream(url) {
+    async getDownloadUrl(url) {
         try {
-            // Caminho para o seu arquivo de cookies
-            const cookiesPath = path.join(__dirname, '../src/cookies.txt');
+            // Cobalt é uma API excelente para baixar mídia sem dor de cabeça
+            const response = await axios.post('https://cobalt.api.kwiatekmiki.pl/api/json', {
+                url: url,
+                vCodec: "h264",
+                vQuality: "720",
+                aFormat: "mp3",
+                isAudioOnly: true
+            }, {
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            });
 
-            const subprocess = ytDlp.exec(url, {
-                extractAudio: true,
-                audioFormat: 'mp3',
-                output: '-',
-                ffmpegLocation: ffmpegPath,
-                // SOLUÇÃO DOS ERROS:
-                cookies: cookiesPath, // Passa o arquivo de cookies
-                jsOptions: 'node',     // Resolve o aviso de JavaScript runtime
-                addHeader: [
-                    'referer:https://www.youtube.com/',
-                    'user-agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-                ]
-            }, { stdio: ['ignore', 'pipe', 'pipe'] });
+            // A API pode retornar o link em 'url' ou 'picker' dependendo do caso
+            if (response.data?.url) {
+                return response.data.url;
+            } else if (response.data?.picker && response.data.picker.length > 0) {
+                return response.data.picker[0].url;
+            }
 
-            subprocess.stderr.on('data', (data) => console.log(`[yt-dlp-debug]: ${data}`));
-
-            return subprocess.stdout; 
+            throw new Error("API não retornou link de áudio.");
         } catch (error) {
-            console.error("Erro no YouTubeService:", error.message);
+            console.error("Erro na API Cobalt:", error.message);
+            return null;
+        }
+    }
+
+    // Função auxiliar para baixar o arquivo do link gerado e converter em Buffer
+    async getAudioBuffer(downloadUrl) {
+        try {
+            const response = await axios.get(downloadUrl, {
+                responseType: 'arraybuffer'
+            });
+            return Buffer.from(response.data);
+        } catch (error) {
+            console.error("Erro ao baixar o buffer do áudio:", error.message);
             return null;
         }
     }
