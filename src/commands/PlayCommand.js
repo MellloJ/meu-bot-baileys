@@ -1,7 +1,10 @@
 // commands/PlayCommand.js
 const Command = require('../core/Command');
-const yt = require('../../services/YouTubeService');
-const lyrics = require('../../services/LyricsService');
+// const yt = require('../../services/YouTubeService');
+// const lyrics = require('../../services/LyricsService');
+
+const YouTubeService = require('../services/YouTubeService');
+const yts = require('yt-search');
 
 class PlayCommand extends Command {
     constructor() {
@@ -9,34 +12,34 @@ class PlayCommand extends Command {
     }
 
     async execute(sock, msg, context, metadata, utils) {
-        // const query = args.join(" ");
-        // if (!query) return sock.sendMessage(msg.key.remoteJid, { text: "Qual música?" });
+        const { remoteJid } = msg.key;
+        const { conteudo } = context;
 
-        const { args, conteudo } = context;
+        try {
+            // 1. Busca o vídeo
+            const r = await yts(conteudo);
+            const video = r.videos[0];
+            if (!video) return sock.sendMessage(remoteJid, { text: "❌ Vídeo não encontrado." });
 
-        // Se o globalHandler já fez o join, use 'conteudo'
-        // Se quiser fazer manualmente, garanta que args existe:
-        const busca = conteudo || (args && args.length > 0 ? args.join(" ") : null);
+            await sock.sendMessage(remoteJid, { text: `⏳ Processando: *${video.title}*...` });
 
-        if (!busca) {
-            return await sock.sendMessage(msg.key.remoteJid, { 
-                text: "⚠️ Digite o nome da música ou link! Ex: *$play Linkin Park*" 
-            });
+            // 2. Obtém o Stream de áudio
+            const stream = await YouTubeService.getAudioStream(video.url);
+
+            if (!stream) throw new Error("Não foi possível gerar o stream.");
+
+            // 3. Envia diretamente para o WhatsApp
+            // O Render não sofre aqui pois o arquivo não é salvo no disco
+            await sock.sendMessage(remoteJid, {
+                audio: { stream },
+                mimetype: 'audio/mp4',
+                ptt: false // mude para true se quiser que envie como "gravando áudio"
+            }, { quoted: msg });
+
+        } catch (e) {
+            console.error(e);
+            await sock.sendMessage(remoteJid, { text: "❌ Erro ao processar áudio. Tente novamente." });
         }
-
-        const video = await yt.search(busca);
-        const [url, letra] = await Promise.all([
-            yt.getDownloadUrl(video.url),
-            lyrics.find(video.title)
-        ]);
-
-        // Envio encapsulado
-        await sock.sendMessage(msg.key.remoteJid, { 
-            image: { url: video.thumbnail }, 
-            caption: `🎧 *${video.title}*${letra}` 
-        });
-        
-        return sock.sendMessage(msg.key.remoteJid, { audio: { url }, mimetype: 'audio/mp4' });
     }
 }
 module.exports = new PlayCommand();
