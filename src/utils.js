@@ -1,5 +1,5 @@
 // utils.js
-const config = require('./src/config');
+const config = require('./config');
 
 // Lista de números que são "Super Admins" (coloque o número com o código do país)
 const ADMINS_EXTERNOS = ['5563991192094@s.whatsapp.net',];
