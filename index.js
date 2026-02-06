@@ -94,17 +94,31 @@ async function iniciarBot() {
 
         if (remoteJid.endsWith('@g.us')) {
             try {
-                const config = groupManager.getGroupConfig(remoteJid);
+                // 1. Carrega a config do GRUPO (vinda do GroupManager)
+                const groupConfig = groupManager.getGroupConfig(remoteJid);
+                
+                // 2. Carrega a config GLOBAL (vinda do seu require('./config'))
+                // Verifique se o seu arquivo ./config.js exporta GRUPOS_AUTORIZADOS e STATUS_BOT
+                const globalConfig = require('./config'); 
 
-                // --- LÓGICA DO FILTRO DE LINKS ---
-                if (config.funcoesExtras?.filtroLinks && texto.includes('http')) {
+                const ehDono = utils.ehSuperAdmin(msg);
+                
+                // Usamos ?. para evitar erro se a lista não existir na globalConfig
+                const ehGrupoVip = globalConfig.GRUPOS_AUTORIZADOS?.includes(remoteJid);
+                const ehGrupoPlus = utils.ehGrupoPlus(remoteJid); 
+
+                // Checagem segura do status do bot
+                const podeExecutar = ehDono || ehGrupoVip || ehGrupoPlus || (globalConfig.STATUS_BOT === 'TODOS');
+
+                if (!podeExecutar) return;
+
+                // --- LÓGICA DO FILTRO DE LINKS --- (usando groupConfig agora)
+                if (groupConfig.funcoesExtras?.filtroLinks && texto.includes('http')) {
                     const metadata = await sock.groupMetadata(remoteJid);
                     const isAdmin = metadata.participants.find(p => p.id === msg.key.participant)?.admin;
 
                     if (!isAdmin) {
-                        // 1. Apaga a mensagem
                         await sock.sendMessage(remoteJid, { delete: msg.key });
-                        // 2. Avisa ou dá o castigo
                         return await sock.sendMessage(remoteJid, { text: "🚫 Links não são permitidos neste grupo!" });
                     }
                 }
@@ -116,13 +130,6 @@ async function iniciarBot() {
                 // 2. O comando veio de um grupo da lista VIP (GRUPOS_LIBERADOS)
                 // 3. A variável global 'liberado' está true (opcional)
                 // const podeExecutar = ehDono || ehGrupoVip || liberado;
-
-                const ehDono = utils.ehSuperAdmin(msg);
-                const ehGrupoVip = config.GRUPOS_AUTORIZADOS.includes(remoteJid);
-                const ehGrupoPlus = utils.ehGrupoPlus(remoteJid); // Nova checagem
-
-                // O bot responde se: For dono, ou grupo VIP, ou grupo PLUS, ou se o status for 'TODOS'
-                const podeExecutar = ehDono || ehGrupoVip || ehGrupoPlus || (config.STATUS_BOT === 'TODOS');
 
                 if (!podeExecutar) return;
 
