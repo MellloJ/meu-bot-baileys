@@ -1,29 +1,22 @@
 // src/services/YouTubeService.js
-const { spawn } = require('child_process');
+const ytDlp = require('yt-dlp-exec');
+const ffmpegPath = require('ffmpeg-static');
 
 class YouTubeService {
     async getAudioStream(url) {
         try {
-            // Parâmetros do yt-dlp:
-            // -x: extrair áudio
-            // --audio-format mp3: formato de saída
-            // -o -: envia o resultado para o 'stdout' (stream) em vez de salvar em arquivo
-            const process = spawn('yt-dlp', [
-                '-x',
-                '--audio-format', 'mp3',
-                '--audio-quality', '128K',
-                '--no-playlist',
-                '--ignore-errors',
-                '--no-warnings',
-                '-o', '-', // Output para o console
-                url
-            ]);
+            // O yt-dlp-exec retorna uma promessa que resolve para um processo
+            // Usamos a flag 'stdio' para capturar o stream
+            const subprocess = ytDlp.exec(url, {
+                extractAudio: true,
+                audioFormat: 'mp3',
+                output: '-',
+                ffmpegLocation: ffmpegPath, // Usa o ffmpeg estático que instalamos
+            }, { stdio: ['ignore', 'pipe', 'ignore'] });
 
-            // Retornamos o fluxo de saída (stdout) para o Baileys consumir
-            return process.stdout;
-
+            return subprocess.stdout; // Retorna o stream de áudio
         } catch (error) {
-            console.error("Erro fatal no YouTubeService:", error.message);
+            console.error("Erro no YouTubeService (yt-dlp-exec):", error.message);
             return null;
         }
     }
