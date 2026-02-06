@@ -1,39 +1,43 @@
+// src/globalHandler.js
 const groupManager = require('./services/GroupManager');
-const commands = require('./commands'); // Pasta com as classes
+const commands = require('./commands'); 
 
 module.exports = {
     async handle(sock, msg, texto, metadata, utils) {
         const remoteJid = msg.key.remoteJid;
-        const args = texto.trim().split(/ +/);
-        const cmdName = args.shift().toLowerCase().substring(1);
+        
+        try {
+            const args = texto.trim().split(/ +/);
+            const cmdName = args.shift().toLowerCase().substring(1);
 
-        // Extração de contexto (o que você já tinha)
-        const context = {
-            args,
-            conteudo: args.join(" "),
-            mencaoDireta: msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0],
-            mensagemRespondida: msg.message?.extendedTextMessage?.contextInfo?.participant,
-            infoContexto: msg.message?.extendedTextMessage?.contextInfo,
-            participanteCitado: msg.message?.extendedTextMessage?.contextInfo?.participant
-        };
+            const context = {
+                args,
+                conteudo: args.join(" "),
+                mencaoDireta: msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0],
+                participanteCitado: msg.message?.extendedTextMessage?.contextInfo?.participant
+            };
 
-        const config = groupManager.getGroupConfig(remoteJid);
+            const groupConfig = groupManager.getGroupConfig(remoteJid);
 
-        // 1. Verifica Comandos Customizados do Grupo
-        if (config.customCommands?.[cmdName]) {
-            return await config.customCommands[cmdName](sock, msg, context);
-        }
-
-        // 2. Busca o Comando Global
-        const command = commands[cmdName];
-        if (command) {
-            // Verifica se o comando está bloqueado neste grupo
-            if (config.comandosBloqueados?.includes(cmdName)) {
-                return await sock.sendMessage(remoteJid, { text: "🚫 Comando desativado neste grupo." });
+            // 1. Verifica se o comando está bloqueado no grupo
+            if (groupConfig.comandosBloqueados?.includes(cmdName)) {
+                return await sock.sendMessage(remoteJid, { text: "🚫 Este comando foi desativado neste grupo." });
             }
 
-            // EXECUÇÃO DO COMANDO
-            return await command.execute(sock, msg, context, metadata, utils);
+            // 2. Busca e executa o comando
+            const command = commands[cmdName];
+            if (command) {
+                // Aqui é onde a mágica acontece: o retorno do comando é vigiado
+                return await command.execute(sock, msg, context, metadata, utils);
+            }
+
+        } catch (error) {
+            // Se QUALQUER comando der erro (TypeError, API fora do ar, etc), cai aqui
+            console.error(`❌ Erro ao executar comando:`, error.message);
+            
+            await sock.sendMessage(remoteJid, { 
+                text: `⚠️ Ops! Ocorreu um erro interno ao processar esse comando.\n\n*Detalhe:* ${error.message}` 
+            }, { quoted: msg });
         }
 
         return false;
