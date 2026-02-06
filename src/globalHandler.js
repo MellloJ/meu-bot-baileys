@@ -1,5 +1,5 @@
-const groupManager = require('./src/services/GroupManager');
-const commands = require('./src/commands'); // Pasta com as classes
+const groupManager = require('./services/GroupManager');
+const commands = require('./commands'); // Pasta com as classes
 
 module.exports = {
     async handle(sock, msg, texto, metadata, utils) {

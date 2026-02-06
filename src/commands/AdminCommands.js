@@ -1,6 +1,6 @@
 // src/core/AdminCommand.js
 
-const Command = require("../../core/Command");
+const Command = require("../core/Command");
 
 class AdminCommands extends Command {
     async execute(sock, msg, context, metadata, utils) {

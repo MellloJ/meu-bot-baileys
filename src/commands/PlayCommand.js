@@ -1,5 +1,5 @@
 // commands/PlayCommand.js
-const Command = require('../../core/Command');
+const Command = require('../core/Command');
 const yt = require('../../services/YouTubeService');
 const lyrics = require('../../services/LyricsService');
 

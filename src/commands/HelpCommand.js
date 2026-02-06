@@ -1,5 +1,5 @@
 // src/commands/HelpCommand.js
-const Command = require('../core/Command');
+const Command = require('../core/Command'); // Sobe de commands/, entra em core/
 
 class HelpCommand extends Command {
     constructor() {
