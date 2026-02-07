@@ -1,8 +1,8 @@
 // src/commands/ConfigCommand.js
-const AdminCommand = require('../core/AdminCommand');
 const groupManager = require('../services/GroupManager');
+const AdminCommands = require('./AdminCommands');
 
-class ConfigCommand extends AdminCommand {
+class ConfigCommand extends AdminCommands {
     constructor() {
         super('config', 'Configura funções do grupo (link, welcome, texto)');
     }
