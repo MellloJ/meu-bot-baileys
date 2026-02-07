@@ -7,19 +7,19 @@ class YouTubeService {
     constructor() {
         this.apis = [
             {
-                name: 'Maher-Zubair (Premium Tier)',
-                url: (link) => `https://api.maher-zubair.tech/download/ytmp3?url=${encodeURIComponent(link)}`,
-                path: 'result.download_url'
+                name: 'Boxi-API (New)',
+                url: (link) => `https://api.boxi.my.id/api/ytmp3?url=${encodeURIComponent(link)}`,
+                path: 'data.url'
             },
             {
-                name: 'D-Low (Fast)',
-                url: (link) => `https://api.dlow.top/ytmp3?url=${encodeURIComponent(link)}`,
-                path: 'result.download'
+                name: 'YanzGPT-Proxy',
+                url: (link) => `https://api.yanzgpt.my.id/api/download/y2mate?url=${encodeURIComponent(link)}`,
+                path: 'result.mp3'
             },
             {
-                name: 'Gifted-Tech (Global)',
-                url: (link) => `https://api.giftedtech.my.id/api/download/ytmp3?url=${encodeURIComponent(link)}`,
-                path: 'result.download_url'
+                name: 'Widipe-Downloader',
+                url: (link) => `https://widipe.com/download/y2mate?url=${encodeURIComponent(link)}`,
+                path: 'result.extra.320.url'
             }
         ];
     }
@@ -35,38 +35,38 @@ class YouTubeService {
             try {
                 console.log(`[YouTube] Tentando ${api.name}...`);
                 
-                // Adicionamos um User-Agent de navegador real para a API não bloquear o Render
+                // Usando cabeçalhos de Mobile para tentar desviar do bloqueio do Render
                 const res = await axios.get(api.url(youtubeUrl), { 
-                    timeout: 12000,
+                    timeout: 20000, // Aumentado para 20s
                     headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'
+                        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+                        'Accept': 'application/json'
                     }
                 });
                 
                 downloadUrl = this.getNestedProp(res.data, api.path);
                 
                 if (downloadUrl && downloadUrl.startsWith('http')) {
-                    console.log(`[YouTube] ✅ Sucesso via ${api.name}`);
+                    console.log(`[YouTube] ✅ Link encontrado via ${api.name}`);
                     break;
                 }
             } catch (e) {
-                // LOG DE DEBUG REAL: Para você saber por que falhou
-                const status = e.response?.status || 'TIMEOUT/OFFLINE';
-                console.warn(`[YouTube] ❌ ${api.name} falhou. Status: ${status}`);
+                console.warn(`[YouTube] ❌ ${api.name} falhou: ${e.code || e.message}`);
             }
         }
 
         if (!downloadUrl) return null;
 
         try {
-            const fileName = `music_${Date.now()}.mp3`;
+            const fileName = `audio_${Date.now()}.mp3`;
             const filePath = path.join('/tmp', fileName);
             
+            console.log("[YouTube] Baixando arquivo...");
             const response = await axios({
                 method: 'GET',
                 url: downloadUrl,
                 responseType: 'stream',
-                timeout: 90000, // 1.5 minutos para o download
+                timeout: 120000, // 2 minutos para baixar
                 headers: { 'User-Agent': 'Mozilla/5.0' }
             });
 
@@ -78,7 +78,7 @@ class YouTubeService {
                 writer.on('error', reject);
             });
         } catch (err) {
-            console.error("[YouTube] Erro ao gravar arquivo:", err.message);
+            console.error("[YouTube] Erro no download do arquivo:", err.message);
             return null;
         }
     }
