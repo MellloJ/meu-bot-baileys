@@ -27,6 +27,7 @@ class PlayCommand extends Command {
             await sock.sendMessage(remoteJid, { text: `⏳ Baixando: *${video.title}*...` });
 
             // 1. Baixa o arquivo para o /tmp do Render
+            console.log(`[DEBUG] URL enviada para o Service: ${video.url}`);
             localFilePath = await YouTubeService.getAudioPath(video.url);
 
             if (!localFilePath) {
