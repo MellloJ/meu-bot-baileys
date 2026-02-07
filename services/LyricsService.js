@@ -1,56 +1,40 @@
 // src/services/LyricsService.js
 const axios = require('axios');
 const yts = require('yt-search');
-const translate = require('@iamtraction/google-translate');
 
 class LyricsService {
     async buscarLetra(termo) {
         try {
-            // 1. Busca o nome exato para evitar erros de busca
+            // 1. Pesquisa no YouTube para garantir que temos o nome correto da música/artista
             const r = await yts(termo);
             const video = r.videos[0];
             if (!video) return null;
 
-            const tituloBusca = video.title.replace(/\(Official.*\)|\[Official.*\]/gi, '').trim();
-
-            // 2. API Alternativa: Vamos usar um scraper de contingência
-            // Esta API costuma ser o "plano B" quando o Render está sob bloqueio 429
-            const url = `https://api.popcat.xyz/lyrics?song=${encodeURIComponent(tituloBusca)}`;
+            // 2. Tenta a LRCLIB (API extremamente estável e recomendada em fóruns atuais)
+            // Ela permite busca por 'track_name' e 'artist_name'
+            const url = `https://lrclib.net/api/search?q=${encodeURIComponent(video.title)}`;
             
-            // const { data } = await axios.get(url, { timeout: 8000 });
             const { data } = await axios.get(url, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15',
-                    'Accept-Language': 'pt-BR,pt;q=0.9'
-                }
+                headers: { 'User-Agent': 'Mozilla/5.0 (Bot de WhatsApp)' },
+                timeout: 5000
             });
 
-            if (!data || !data.lyrics) {
-                return null;
+            // A LRCLIB retorna um array. Vamos pegar o primeiro resultado que tenha letra.
+            const musicaEncontrada = data.find(m => m.plainLyrics || m.syncedLyrics);
+
+            if (musicaEncontrada) {
+                return {
+                    titulo: musicaEncontrada.trackName,
+                    artista: musicaEncontrada.artistName,
+                    letra: musicaEncontrada.plainLyrics || "Letra sincronizada disponível, mas sem texto puro.",
+                    imagem: video.thumbnail
+                };
             }
 
-            // 3. Tradução com tratamento de erro isolado
-            let letraTraduzida = null;
-            try {
-                // Tentativa de tradução
-                const res = await translate(data.lyrics, { to: 'pt' });
-                if (res.from.language.iso !== 'pt') {
-                    letraTraduzida = res.text;
-                }
-            } catch (err) {
-                console.warn("[Lyrics] Tradução ignorada para evitar bloqueio 429.");
-            }
-
-            return {
-                titulo: data.title || video.title,
-                artista: data.artist || "Artista Desconhecido",
-                letraOriginal: data.lyrics,
-                letraTraduzida: letraTraduzida,
-                imagem: data.image || video.thumbnail
-            };
-
+            // Fallback: Se não achar na LRCLIB, tenta uma busca bruta pelo título no endpoint de 'get'
+            return null;
         } catch (error) {
-            console.error("[LyricsService] Erro crítico:", error.message);
+            console.error("[LyricsService] Erro na LRCLIB:", error.message);
             return null;
         }
     }

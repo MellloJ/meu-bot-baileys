@@ -4,38 +4,33 @@ const LyricsService = require('../../services/LyricsService');
 
 class LyricsCommand extends Command {
     constructor() {
-        super('letra', 'Busca a letra da música e traduz automaticamente.');
+        super('letra', 'Busca a letra da música pelo nome.');
     }
 
     async execute(sock, msg, context) {
         const { remoteJid } = msg.key;
         const { conteudo } = context;
 
-        if (!conteudo) return sock.sendMessage(remoteJid, { text: "⚠️ Qual música você quer?" });
+        if (!conteudo) return sock.sendMessage(remoteJid, { text: "⚠️ Digite o nome da música!" });
 
         try {
-            await sock.sendMessage(remoteJid, { text: "🎤 Buscando e traduzindo..." }, { quoted: msg });
+            await sock.sendMessage(remoteJid, { text: "🔍 Buscando letra..." }, { quoted: msg });
 
-            const res = await LyricsService.buscarLetra(conteudo);
-            if (!res) return sock.sendMessage(remoteJid, { text: "❌ Letra não encontrada." });
+            const data = await LyricsService.buscarLetra(conteudo);
 
-            // Montagem do corpo da mensagem
-            let mensagemFinal = `🎤 *${res.titulo}*\n👤 *${res.artista}*\n\n`;
-            
-            if (res.letraTraduzida) {
-                mensagemFinal += `📜 *LETRA ORIGINAL:*\n${res.letraOriginal}\n\n`;
-                mensagemFinal += `🇧🇷 *TRADUÇÃO:*\n${res.letraTraduzida}`;
-            } else {
-                mensagemFinal += res.letraOriginal;
+            if (!data) {
+                return sock.sendMessage(remoteJid, { text: "❌ Não encontrei a letra desta música nos registros atuais." });
             }
 
-            await sock.sendMessage(remoteJid, {
-                text: mensagemFinal,
+            const textoFinal = `🎤 *${data.titulo}*\n👤 *${data.artista}*\n\n${data.letra}`;
+
+            await sock.sendMessage(remoteJid, { 
+                text: textoFinal,
                 contextInfo: {
                     externalAdReply: {
-                        title: res.titulo,
-                        body: `Letra & Tradução de ${res.artista}`,
-                        thumbnailUrl: res.imagem,
+                        title: data.titulo,
+                        body: data.artista,
+                        thumbnailUrl: data.imagem,
                         mediaType: 1,
                         renderLargerThumbnail: true
                     }
@@ -43,11 +38,8 @@ class LyricsCommand extends Command {
             }, { quoted: msg });
 
         } catch (e) {
-            if (e.message.includes('429')) {
-                await sock.sendMessage(remoteJid, { text: "🕒 Muitas requisições! O Google me pediu um descanso. Tente novamente em alguns minutos." });
-            } else {
-                await sock.sendMessage(remoteJid, { text: "❌ Erro ao buscar a letra. Tente novamente mais tarde." });
-            }
+            console.error("[LyricsCommand] Erro:", e);
+            await sock.sendMessage(remoteJid, { text: "❌ Erro ao processar a busca." });
         }
     }
 }
