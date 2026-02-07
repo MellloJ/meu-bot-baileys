@@ -4,28 +4,77 @@ const fs = require('fs');
 const path = require('path');
 
 class YouTubeService {
-    async getAudioPath(youtubeUrl) {
-        try {
-            console.log("[YouTube] Solicitando link de download via API externa...");
-            
-            // Usando a API Agatz que é muito estável para MP3
-            const apiRes = await axios.get(`https://api.agatz.xyz/api/ytmp3?url=${encodeURIComponent(youtubeUrl)}`);
-            
-            if (!apiRes.data?.data?.downloadUrl) {
-                throw new Error("A API não retornou um link de download válido.");
+    constructor() {
+        // APIs atualizadas e testadas em comunidades de bots (2025/2026)
+        this.apis = [
+            {
+                name: 'Vreden (Estável)',
+                url: (link) => `https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(link)}`,
+                path: 'result.download'
+            },
+            {
+                name: 'Sandip (Robusta)',
+                url: (link) => `https://api.sandipbaruwal.com.np/ytdl/v2?url=${encodeURIComponent(link)}`,
+                path: 'data.audio'
+            },
+            {
+                name: 'Ayleen (Backup)',
+                url: (link) => `https://api.ayleen.my.id/api/download/ytmp3?url=${encodeURIComponent(link)}`,
+                path: 'result.url'
+            },
+            {
+                name: 'Agatz (Alternativa)',
+                url: (link) => `https://api.agatz.xyz/api/ytmp3?url=${encodeURIComponent(link)}`,
+                path: 'data.downloadUrl'
+            },
+            {
+                name: 'DarkYasiya (Internacional)',
+                url: (link) => `https://dark-yasiya-api-new.vercel.app/download/ytmp3?url=${encodeURIComponent(link)}`,
+                path: 'result.dl_link'
             }
+        ];
+    }
 
-            const downloadUrl = apiRes.data.data.downloadUrl;
-            const fileName = `bot_audio_${Date.now()}.mp3`;
-            const filePath = path.join('/tmp', fileName); // Render permite escrita no /tmp
+    getNestedProp(obj, path) {
+        return path.split('.').reduce((prev, curr) => prev?.[curr], obj);
+    }
 
-            console.log("[YouTube] Iniciando download para o servidor...");
+    async getAudioPath(youtubeUrl) {
+        let downloadUrl = null;
 
-            // Faz o download do arquivo MP3 para o disco do Render
+        for (const api of this.apis) {
+            try {
+                console.log(`[YouTube] Tentando ${api.name}...`);
+                // Timeout curto para não deixar o usuário esperando uma API morta
+                const res = await axios.get(api.url(youtubeUrl), { timeout: 8000 });
+                
+                downloadUrl = this.getNestedProp(res.data, api.path);
+                
+                if (downloadUrl && downloadUrl.startsWith('http')) {
+                    console.log(`[YouTube] Link obtido com sucesso via ${api.name}`);
+                    break;
+                }
+            } catch (e) {
+                console.warn(`[YouTube] ${api.name} indisponível no momento.`);
+            }
+        }
+
+        if (!downloadUrl) return null;
+
+        try {
+            const fileName = `musica_${Date.now()}.mp3`;
+            const filePath = path.join('/tmp', fileName);
+            
+            console.log("[YouTube] Baixando arquivo para o servidor...");
+            
             const response = await axios({
                 method: 'GET',
                 url: downloadUrl,
-                responseType: 'stream'
+                responseType: 'stream',
+                timeout: 60000, // 1 minuto para baixar o arquivo
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
             });
 
             const writer = fs.createWriteStream(filePath);
@@ -33,14 +82,10 @@ class YouTubeService {
 
             return new Promise((resolve, reject) => {
                 writer.on('finish', () => resolve(filePath));
-                writer.on('error', (err) => {
-                    console.error("[YouTube] Erro ao gravar arquivo:", err);
-                    reject(err);
-                });
+                writer.on('error', reject);
             });
-
-        } catch (error) {
-            console.error("[YouTube] Erro no fluxo de download:", error.message);
+        } catch (err) {
+            console.error("[YouTube] Erro ao salvar arquivo no Render:", err.message);
             return null;
         }
     }
