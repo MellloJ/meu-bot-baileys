@@ -11,27 +11,28 @@ class LyricsCommand extends Command {
         const { remoteJid } = msg.key;
         const { conteudo } = context;
 
-        if (!conteudo) return sock.sendMessage(remoteJid, { text: "⚠️ Digite o nome da música!" });
+        if (!conteudo) return sock.sendMessage(remoteJid, { text: "⚠️ Qual música você quer?" });
 
         try {
-            await sock.sendMessage(remoteJid, { text: "🔍 Buscando nos registros..." }, { quoted: msg });
+            await sock.sendMessage(remoteJid, { text: "🔎 Buscando em múltiplos registros..." }, { quoted: msg });
 
-            const data = await LyricsService.buscarLetra(conteudo);
-
-            // Verificação de segurança para evitar o erro de [Object] no sendMessage
-            if (!data || !data.letra || typeof data.letra !== 'string') {
-                return sock.sendMessage(remoteJid, { text: "❌ Não encontrei a letra. Tente digitar 'Artista - Música'." });
+            const res = await LyricsService.buscarLetra(conteudo);
+            
+            if (!res || !res.letra) {
+                return sock.sendMessage(remoteJid, { text: "❌ Letra não encontrada em nenhum dos servidores. Tente digitar: Artista - Música" });
             }
 
-            const textoFinal = `🎤 *${String(data.titulo)}*\n👤 *${String(data.artista)}*\n\n${String(data.letra)}`;
+            // Garantindo que enviamos apenas strings para o Baileys
+            const cabecalho = `🎤 *${String(res.titulo)}*\n👤 *${String(res.artista)}*\n\n`;
+            const corpo = String(res.letra);
 
-            await sock.sendMessage(remoteJid, { 
-                text: textoFinal,
+            await sock.sendMessage(remoteJid, {
+                text: cabecalho + corpo,
                 contextInfo: {
                     externalAdReply: {
-                        title: String(data.titulo),
-                        body: String(data.artista),
-                        thumbnailUrl: data.imagem,
+                        title: String(res.titulo),
+                        body: String(res.artista),
+                        thumbnailUrl: res.imagem,
                         mediaType: 1,
                         renderLargerThumbnail: true
                     }
@@ -39,8 +40,8 @@ class LyricsCommand extends Command {
             }, { quoted: msg });
 
         } catch (e) {
-            console.error("[LyricsCommand] Erro Crítico:", e);
-            await sock.sendMessage(remoteJid, { text: "❌ Erro ao processar comando." });
+            console.error(e);
+            await sock.sendMessage(remoteJid, { text: "❌ Ocorreu um erro técnico ao processar a letra." });
         }
     }
 }
