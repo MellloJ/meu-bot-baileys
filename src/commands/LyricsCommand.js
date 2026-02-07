@@ -4,7 +4,7 @@ const LyricsService = require('../../services/LyricsService');
 
 class LyricsCommand extends Command {
     constructor() {
-        super('letra', 'Busca a letra da música pelo nome.');
+        super('letra', 'Busca a letra da música.');
     }
 
     async execute(sock, msg, context) {
@@ -14,22 +14,23 @@ class LyricsCommand extends Command {
         if (!conteudo) return sock.sendMessage(remoteJid, { text: "⚠️ Digite o nome da música!" });
 
         try {
-            await sock.sendMessage(remoteJid, { text: "🔍 Buscando letra..." }, { quoted: msg });
+            await sock.sendMessage(remoteJid, { text: "🔍 Buscando nos registros..." }, { quoted: msg });
 
             const data = await LyricsService.buscarLetra(conteudo);
 
-            if (!data) {
-                return sock.sendMessage(remoteJid, { text: "❌ Não encontrei a letra desta música nos registros atuais." });
+            // Verificação de segurança para evitar o erro de [Object] no sendMessage
+            if (!data || !data.letra || typeof data.letra !== 'string') {
+                return sock.sendMessage(remoteJid, { text: "❌ Não encontrei a letra. Tente digitar 'Artista - Música'." });
             }
 
-            const textoFinal = `🎤 *${data.titulo}*\n👤 *${data.artista}*\n\n${data.letra}`;
+            const textoFinal = `🎤 *${String(data.titulo)}*\n👤 *${String(data.artista)}*\n\n${String(data.letra)}`;
 
             await sock.sendMessage(remoteJid, { 
                 text: textoFinal,
                 contextInfo: {
                     externalAdReply: {
-                        title: data.titulo,
-                        body: data.artista,
+                        title: String(data.titulo),
+                        body: String(data.artista),
                         thumbnailUrl: data.imagem,
                         mediaType: 1,
                         renderLargerThumbnail: true
@@ -38,8 +39,8 @@ class LyricsCommand extends Command {
             }, { quoted: msg });
 
         } catch (e) {
-            console.error("[LyricsCommand] Erro:", e);
-            await sock.sendMessage(remoteJid, { text: "❌ Erro ao processar a busca." });
+            console.error("[LyricsCommand] Erro Crítico:", e);
+            await sock.sendMessage(remoteJid, { text: "❌ Erro ao processar comando." });
         }
     }
 }
