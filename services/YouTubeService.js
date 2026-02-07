@@ -9,18 +9,29 @@ class YouTubeService {
         const filePath = path.join('/tmp', fileName);
 
         return new Promise((resolve, reject) => {
-            console.log(`[YouTube] Baixando via yt-dlp: ${youtubeUrl}`);
+            console.log(`[YouTube] Tentando baixar via yt-dlp (Simulando iOS)...`);
             
-            // Comando para baixar apenas o áudio em MP3
-            const command = `yt-dlp -x --audio-format mp3 --audio-quality 0 -o "${filePath}" "${youtubeUrl}"`;
+            // --js-runtimes node: Usa o Node do seu servidor para processar o vídeo
+            // --extractor-args: Simula um app de iPhone para evitar o erro de "Sign in"
+            const command = `yt-dlp --cookies ./cookies.txt -x --audio-format mp3 --audio-quality 0 \
+                --js-runtimes node \
+                --extractor-args "youtube:player_client=ios" \
+                -o "${filePath}" "${youtubeUrl}"`;
 
             exec(command, (error, stdout, stderr) => {
                 if (error) {
-                    console.error(`[YouTube] Erro no yt-dlp: ${error.message}`);
+                    console.error(`[YouTube] Erro crítico no yt-dlp: ${error.message}`);
+                    // Se houver erro, retornamos null para o comando avisar o usuário
                     return resolve(null);
                 }
-                console.log("[YouTube] Download local concluído!");
-                resolve(filePath);
+                
+                if (fs.existsSync(filePath)) {
+                    console.log("[YouTube] Download local concluído com sucesso!");
+                    resolve(filePath);
+                } else {
+                    console.error("[YouTube] O arquivo não foi gerado.");
+                    resolve(null);
+                }
             });
         });
     }
