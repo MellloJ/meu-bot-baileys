@@ -19,7 +19,9 @@ class StickerService {
         });
     }
 
-    async createQuote(text, avatar, name, color = "#FFFFFF") {
+    // src/services/StickerService.js
+
+    async createQuote(text, avatar, name) {
         const obj = {
             "type": "quote",
             "format": "png",
@@ -39,8 +41,22 @@ class StickerService {
                 "replyMessage": {}
             }]
         };
-        const res = await axios.post('https://quote-api.up.railway.app/generate', obj);
-        return Buffer.from(res.data.result.image, 'base64');
+
+        try {
+            // Trocando para o endpoint estável da herokuapp/botika
+            const res = await axios.post('https://botika-quote-generator.herokuapp.com/generate', obj);
+            
+            if (res.data && res.data.result && res.data.result.image) {
+                return Buffer.from(res.data.result.image, 'base64');
+            } else {
+                throw new Error("Resposta da API sem imagem.");
+            }
+        } catch (err) {
+            console.error("[StickerService] Erro na API de Quote:", err.message);
+            // Fallback: Se a API de Quote falhar, podemos tentar uma segunda opção
+            const fallbackRes = await axios.post('https://quote-api.botika.online/generate', obj);
+            return Buffer.from(fallbackRes.data.result.image, 'base64');
+        }
     }
 }
 
