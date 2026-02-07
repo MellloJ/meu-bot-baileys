@@ -27,12 +27,10 @@ module.exports = {
             // 2. Busca e executa o comando
             const command = commands[cmdName];
             if (command) {
-                // Aqui é onde a mágica acontece: o retorno do comando é vigiado
                 return await command.execute(sock, msg, context, metadata, utils);
             }
 
         } catch (error) {
-            // Se QUALQUER comando der erro (TypeError, API fora do ar, etc), cai aqui
             console.error(`❌ Erro ao executar comando:`, error.message);
             
             await sock.sendMessage(remoteJid, { 

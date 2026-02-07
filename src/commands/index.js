@@ -5,9 +5,9 @@ module.exports = {
     id: require('./IdCommand'),
     kill: require('./KillCommand'),
     add: require('./AddCommand'),
-    play: require('./PlayCommand'),
+    // play: require('./PlayCommand'),
     // musica: require('./PlayCommand'), // Alias
-    // s: require('./StickerCommand'),
+    figurinha: require('./StickerCommand'),
     // setup: require('./SetupCommand'),
     letra: require('./LyricsCommand'),
     hidetag: require('./HidetagCommand'),

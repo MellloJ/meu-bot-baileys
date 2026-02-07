@@ -89,6 +89,7 @@ async function iniciarBot() {
         // Se não puder responder, o código morre aqui mesmo.
         if (!utils.podeResponder(remoteJid, msg)) {
             console.log(`[BLOQUEADO] Comando ignorado no grupo/chat: ${remoteJid}`);
+
             return;
         }
 
@@ -122,16 +123,8 @@ async function iniciarBot() {
                         return await sock.sendMessage(remoteJid, { text: "🚫 Links não são permitidos neste grupo!" });
                     }
                 }
-                // const ehDono = utils.temPermissao(msg);
-                // const ehGrupoVip = utils.grupoEhLiberado(remoteJid);
                 
-                // O bot responde se:
-                // 1. Você (Dono) mandou o comando
-                // 2. O comando veio de um grupo da lista VIP (GRUPOS_LIBERADOS)
-                // 3. A variável global 'liberado' está true (opcional)
-                // const podeExecutar = ehDono || ehGrupoVip || liberado;
-
-                if (!podeExecutar) return;
+                // if (!podeExecutar) return;
 
                 if (!podeExecutar) {
                     // Opcional: avisar que não tem permissão

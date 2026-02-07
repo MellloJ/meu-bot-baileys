@@ -4,7 +4,7 @@ const path = require('path');
 
 class GroupManager {
     constructor() {
-        this.basePath = path.join(__dirname, '../settings/groups');
+        this.basePath = path.join(__dirname, './settings/groups');
         // Garante que a pasta de configurações exista
         if (!fs.existsSync(this.basePath)) {
             fs.mkdirSync(this.basePath, { recursive: true });
