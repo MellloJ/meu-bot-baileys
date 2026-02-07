@@ -8,7 +8,7 @@ module.exports = {
     // play: require('./PlayCommand'),
     // musica: require('./PlayCommand'), // Alias
     figurinha: require('./StickerCommand'),
-    // setup: require('./SetupCommand'),
+    config: require('./ConfigCommand'),
     letra: require('./LyricsCommand'),
     hidetag: require('./HidetagCommand'),
     help: require('./HelpCommand'),

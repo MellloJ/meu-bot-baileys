@@ -43,8 +43,11 @@ class LyricsCommand extends Command {
             }, { quoted: msg });
 
         } catch (e) {
-            console.error(e);
-            await sock.sendMessage(remoteJid, { text: "❌ Erro ao processar a letra." });
+            if (e.message.includes('429')) {
+                await sock.sendMessage(remoteJid, { text: "🕒 Muitas requisições! O Google me pediu um descanso. Tente novamente em alguns minutos." });
+            } else {
+                await sock.sendMessage(remoteJid, { text: "❌ Erro ao buscar a letra. Tente novamente mais tarde." });
+            }
         }
     }
 }

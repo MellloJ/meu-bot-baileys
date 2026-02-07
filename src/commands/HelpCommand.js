@@ -30,15 +30,15 @@ class HelpCommand extends Command {
             const linha = `> *$${key}* - _${cmd.description}_\n`;
 
             // Lógica simples de separação (você pode adicionar uma prop 'category' na classe Command depois)
-            if (['kill', 'add', 'hidetag', 'setup'].includes(key)) adminCmds += linha;
-            else if (['play', 'video', 's'].includes(key)) mediaCmds += linha;
+            if (['kill', 'add', 'hidetag', 'config'].includes(key)) adminCmds += linha;
+            else if (['play', 'video', 'figurinha', 'letra'].includes(key)) mediaCmds += linha;
             else utilCmds += linha;
         }
 
         menu += `${categorias.admin}\n${adminCmds}\n`;
         menu += `${categorias.media}\n${mediaCmds}\n`;
         menu += `${categorias.util}\n${utilCmds}\n`;
-        menu += `\n💡 *Dica:* Use \`$setup\` para configurar o grupo.`;
+        menu += `\n💡 *Dica:* Use \`$config\` para configurar o grupo.`;
 
         await sock.sendMessage(remoteJid, { text: menu }, { quoted: msg });
         return true;
