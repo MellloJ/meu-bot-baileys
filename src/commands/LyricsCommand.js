@@ -14,7 +14,9 @@ class LyricsCommand extends Command {
         if (!conteudo) return sock.sendMessage(remoteJid, { text: "⚠️ Qual música você quer?" });
 
         try {
-            await sock.sendMessage(remoteJid, { text: "🔎 Buscando em múltiplos registros..." }, { quoted: msg });
+            await sock.sendMessage(remoteJid, { 
+                text: "⏳ O servidor está lento hoje, mas estou vasculhando os arquivos para você. Aguarde uns instantes..." 
+            }, { quoted: msg });
 
             const res = await LyricsService.buscarLetra(conteudo);
             

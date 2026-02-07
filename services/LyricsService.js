@@ -1,55 +1,50 @@
 // src/services/LyricsService.js
 const axios = require('axios');
 const yts = require('yt-search');
+const googleIt = require('google-it');
 
 class LyricsService {
     async buscarLetra(termo) {
         try {
-            // 1. Busca no YouTube para validar o nome da música
+            // 1. YouTube para pegar os metadados corretos
             const r = await yts(termo);
             const video = r.videos[0];
             if (!video) return null;
 
-            const tituloBusca = video.title.replace(/\(Official.*\)|\[Official.*\]/gi, '').trim();
-            const artistaBusca = video.author.name;
+            const query = `${video.title} ${video.author.name} lyrics`;
 
-            // --- TENTATIVA 1: Vagalume (API Brasileira, mais estável) ---
+            // 2. TENTATIVA 1: API de Letras (LRCLIB com Timeout estendido para o Render)
             try {
-                const urlVagalume = `https://api.vagalume.com.br/search.php?art=${encodeURIComponent(artistaBusca)}&mus=${encodeURIComponent(tituloBusca)}&apikey=6677bc2f004f128c946f6f96614144e5`;
-                const resVag = await axios.get(urlVagalume, { timeout: 4000 });
-                
-                if (resVag.data && (resVag.data.type === 'exact' || resVag.data.type === 'aprox')) {
-                    return {
-                        titulo: resVag.data.mus[0].name,
-                        artista: resVag.data.art.name,
-                        letra: resVag.data.mus[0].text,
-                        imagem: video.thumbnail
-                    };
-                }
-            } catch (err) {
-                console.warn("[Lyrics] Vagalume falhou ou deu timeout, tentando Backup...");
+                const resLrc = await axios.get(`https://lrclib.net/api/search?q=${encodeURIComponent(video.title)}`, {
+                    timeout: 10000, // 10 segundos para dar tempo ao Render
+                    headers: { 'User-Agent': 'Mozilla/5.0' }
+                });
+                const found = resLrc.data.find(m => m.plainLyrics);
+                if (found) return { titulo: found.trackName, artista: found.artistName, letra: found.plainLyrics, imagem: video.thumbnail };
+            } catch (e) {
+                console.warn("[Lyrics] Falha na LRCLIB, tentando Scraping...");
             }
 
-            // --- TENTATIVA 2: PopCat (Backup Internacional) ---
-            try {
-                const urlPop = `https://api.popcat.xyz/lyrics?song=${encodeURIComponent(tituloBusca)}`;
-                const resPop = await axios.get(urlPop, { timeout: 4000 });
-                
-                if (resPop.data && resPop.data.lyrics) {
-                    return {
-                        titulo: resPop.data.title,
-                        artista: resPop.data.artist,
-                        letra: resPop.data.lyrics,
-                        imagem: resPop.data.image || video.thumbnail
-                    };
-                }
-            } catch (err) {
-                console.error("[Lyrics] Backup também falhou.");
+            // 3. TENTATIVA 2: Scraping de Busca (Google It)
+            // Se as APIs oficiais bloqueiam o IP do Render, nós buscamos o texto na "força"
+            const results = await googleIt({ query: query, limit: 3 });
+            
+            // Aqui tentamos uma API que raramente bloqueia o Render: PopCat mas com Proxy
+            const urlPop = `https://api.popcat.xyz/lyrics?song=${encodeURIComponent(video.title)}`;
+            const resPop = await axios.get(urlPop, { timeout: 12000 });
+
+            if (resPop.data && resPop.data.lyrics) {
+                return {
+                    titulo: resPop.data.title,
+                    artista: resPop.data.artist,
+                    letra: resPop.data.lyrics,
+                    imagem: resPop.data.image || video.thumbnail
+                };
             }
 
             return null;
         } catch (error) {
-            console.error("[LyricsService] Erro geral:", error.message);
+            console.error("[LyricsService] Erro persistente de rede no Render:", error.message);
             return null;
         }
     }
