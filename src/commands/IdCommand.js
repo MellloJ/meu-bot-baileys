@@ -1,4 +1,4 @@
-const DonoCommand = require("./DonoCommandAbstractClass");
+const DonoCommandAbstractClass = require("./DonoCommandAbstractClass");
 
 class IdCommand extends DonoCommandAbstractClass {
     constructor() {

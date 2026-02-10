@@ -2,7 +2,7 @@
 
 const Command = require("../core/Command");
 
-class DonoCommand extends Command {
+class DonoCommandAbstractClass extends Command {
     async execute(sock, msg, context, metadata, utils) {
         const { remoteJid } = msg.key;
 
@@ -28,4 +28,4 @@ class DonoCommand extends Command {
     }
 }
 
-module.exports = DonoCommand;
+module.exports = DonoCommandAbstractClass;
