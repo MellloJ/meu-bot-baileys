@@ -17,7 +17,7 @@ class RevealCommand extends DonoCommandAbstractClass {
             return sock.sendMessage(remoteJid, { text: "⚠️ Marque a mensagem de visualização única!" });
         }
 
-        // 2. Deep Search: Procura a mídia em todas as estruturas possíveis (V1, V2, Extension)
+        // 2. Busca profunda da mídia (V1, V2 e V2Extension)
         const viewOnceMsg = quoted.viewOnceMessageV2?.message || 
                             quoted.viewOnceMessage?.message || 
                             quoted.viewOnceMessageV2Extension?.message ||
@@ -32,10 +32,15 @@ class RevealCommand extends DonoCommandAbstractClass {
         }
 
         try {
-            // Feedback visual rápido
-            await sock.react(remoteJid, msg.key, '🔓');
+            // CORREÇÃO DA REAÇÃO: Baileys usa sendMessage com 'react'
+            await sock.sendMessage(remoteJid, {
+                react: {
+                    text: '🔓',
+                    key: msg.key
+                }
+            });
 
-            // 3. Define o tipo e o mimetype ORIGINAL para evitar reprocessamento
+            // 3. Define o tipo e o mimetype ORIGINAL
             const mediaType = imageMessage ? 'image' : 'video';
             const originalMimetype = media.mimetype || (imageMessage ? 'image/jpeg' : 'video/mp4');
 
@@ -46,25 +51,25 @@ class RevealCommand extends DonoCommandAbstractClass {
                 buffer = Buffer.concat([buffer, chunk]);
             }
 
-            // 5. Reenvio "Cirúrgico"
-            // O segredo para não dar erro no Canvas/GLib é passar o 'mimetype'
-            // e NÃO passar 'jpegThumbnail' (deixe que o WhatsApp do usuário gere isso).
-            const messagePayload = {};
+            // 5. Reenvio sem gerar thumbnail (evita erro GLib)
+            const messagePayload = {
+                caption: "🔓 *Mídia Revelada*",
+                mimetype: originalMimetype
+            };
             
+            // Adiciona o buffer no campo correto (image ou video)
             messagePayload[mediaType] = buffer;
-            messagePayload.caption = "🔓 *Mídia Revelada*";
-            messagePayload.mimetype = originalMimetype; // <--- ISSO EVITA O ERRO DE GLIB
             
-            // Se for vídeo, forçamos não ser gif para não exigir processamento
             if (videoMessage) {
                 messagePayload.gifPlayback = false;
             }
 
+            // Enviamos o arquivo bruto
             await sock.sendMessage(remoteJid, messagePayload, { quoted: msg });
 
         } catch (e) {
             console.error("[Reveal Error]", e);
-            await sock.sendMessage(remoteJid, { text: "❌ Erro: Mídia expirada ou corrompida." });
+            await sock.sendMessage(remoteJid, { text: "❌ Erro: Mídia expirada ou falha no download." });
         }
     }
 }
