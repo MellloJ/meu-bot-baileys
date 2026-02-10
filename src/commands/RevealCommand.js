@@ -29,7 +29,6 @@ class RevealCommand extends DonoCommandAbstractClass {
         const target = image || video;
 
         if (!target) {
-            // Log para debug se falhar novamente
             console.log("Estrutura da mensagem marcada:", JSON.stringify(quoted, null, 2));
             return sock.sendMessage(remoteJid, { text: "❌ Isso não parece ser uma mídia de visualização única ou o link expirou." });
         }
