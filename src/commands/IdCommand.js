@@ -1,11 +1,11 @@
 const AdminCommands = require("./AdminCommands");
 
-class IdCommand extends AdminCommands {
+class IdCommand extends DonoCommand {
     constructor() {
         super('id', 'Mostra o ID do grupo, usuário mencionado ou mensagem respondida');
     }
 
-    async handleAdmin(sock, msg, context, metadata, utils) {
+    async handleDono(sock, msg, context, metadata, utils) {
         const { remoteJid } = msg.key;
         
         // 1. Pega o ID de quem foi mencionado com @

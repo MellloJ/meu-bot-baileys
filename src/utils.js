@@ -55,7 +55,7 @@ module.exports = {
         if (config.STATUS_BOT === 'DESATIVADO') return false;
 
         // 3. Se for mensagem privada (DM), você decide se libera ou não
-        if (!remoteJid.endsWith('@g.us') && config.RESPONDER_PV) return true; 
+        if (!remoteJid.endsWith('@g.us') && config.RESPONDER_PV || this.temPermissao(msg)) return true; 
 
         // 4. Lógica de Grupos
         if (config.STATUS_BOT === 'TODOS') return true;
