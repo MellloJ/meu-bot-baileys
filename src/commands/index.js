@@ -13,4 +13,5 @@ module.exports = {
     hidetag: require('./HidetagCommand'),
     help: require('./HelpCommand'),
     dono: require('./DonoCommand'),
+    revelar: require('./RevealCommand'),
 };
