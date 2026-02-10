@@ -1,60 +1,70 @@
+// src/commands/RevealCommand.js
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const DonoCommandAbstractClass = require('./DonoCommandAbstractClass');
 
 class RevealCommand extends DonoCommandAbstractClass {
     constructor() {
-        super('revelar', 'Revela fotos/vídeos de visualização única marcados.');
+        super('revelar', 'Revela mídia de visualização única (sem processar miniatura).');
     }
 
     async handleDono(sock, msg, context, metadata, utils) {
         const { remoteJid } = msg.key;
         
-        // 1. Pega a mensagem que você marcou
+        // 1. Localiza a mensagem marcada (quoted)
         const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-
+        
         if (!quoted) {
-            return sock.sendMessage(remoteJid, { text: "⚠️ Marque uma mensagem de visualização única!" });
+            return sock.sendMessage(remoteJid, { text: "⚠️ Marque a mensagem de visualização única!" });
         }
 
-        // 2. Tenta encontrar a mídia em todas as variações possíveis do protocolo
-        // O segredo está em buscar recursivamente ou em todas as chaves 'viewOnce'
-        const rawMedia = 
-            quoted.viewOnceMessageV2?.message || 
-            quoted.viewOnceMessage?.message ||
-            quoted.viewOnceMessageV2Extension?.message ||
-            quoted; // Caso a mídia esteja na raiz por algum motivo de versão
+        // 2. Deep Search: Procura a mídia em todas as estruturas possíveis (V1, V2, Extension)
+        const viewOnceMsg = quoted.viewOnceMessageV2?.message || 
+                            quoted.viewOnceMessage?.message || 
+                            quoted.viewOnceMessageV2Extension?.message ||
+                            quoted;
 
-        const image = rawMedia.imageMessage;
-        const video = rawMedia.videoMessage;
-        const target = image || video;
+        const imageMessage = viewOnceMsg.imageMessage;
+        const videoMessage = viewOnceMsg.videoMessage;
+        const media = imageMessage || videoMessage;
 
-        if (!target) {
-            console.log("Estrutura da mensagem marcada:", JSON.stringify(quoted, null, 2));
-            return sock.sendMessage(remoteJid, { text: "❌ Isso não parece ser uma mídia de visualização única ou o link expirou." });
+        if (!media) {
+            return sock.sendMessage(remoteJid, { text: "❌ Mídia não encontrada ou formato incompatível." });
         }
 
         try {
-            await sock.sendMessage(remoteJid, { text: "🔓 Descriptografando mídia..." }, { quoted: msg });
+            // Feedback visual rápido
+            await sock.react(remoteJid, msg.key, '🔓');
 
-            const type = image ? 'image' : 'video';
-            
-            // 3. Download do buffer
-            const stream = await downloadContentFromMessage(target, type);
+            // 3. Define o tipo e o mimetype ORIGINAL para evitar reprocessamento
+            const mediaType = imageMessage ? 'image' : 'video';
+            const originalMimetype = media.mimetype || (imageMessage ? 'image/jpeg' : 'video/mp4');
+
+            // 4. Download do Buffer
+            const stream = await downloadContentFromMessage(media, mediaType);
             let buffer = Buffer.from([]);
             for await (const chunk of stream) {
                 buffer = Buffer.concat([buffer, chunk]);
             }
 
-            // 4. Envia de volta como mídia comum
-            const sendOptions = {};
-            sendOptions[type] = buffer;
-            sendOptions.caption = `🔓 *Mídia Revelada*\n\n_Nota: Mídias de visualização única são descriptografadas pelo bot._`;
+            // 5. Reenvio "Cirúrgico"
+            // O segredo para não dar erro no Canvas/GLib é passar o 'mimetype'
+            // e NÃO passar 'jpegThumbnail' (deixe que o WhatsApp do usuário gere isso).
+            const messagePayload = {};
+            
+            messagePayload[mediaType] = buffer;
+            messagePayload.caption = "🔓 *Mídia Revelada*";
+            messagePayload.mimetype = originalMimetype; // <--- ISSO EVITA O ERRO DE GLIB
+            
+            // Se for vídeo, forçamos não ser gif para não exigir processamento
+            if (videoMessage) {
+                messagePayload.gifPlayback = false;
+            }
 
-            await sock.sendMessage(remoteJid, sendOptions, { quoted: msg });
+            await sock.sendMessage(remoteJid, messagePayload, { quoted: msg });
 
         } catch (e) {
-            console.error("Erro ao revelar mídia:", e);
-            await sock.sendMessage(remoteJid, { text: "❌ Falha ao baixar a mídia. Pode ser que ela já tenha sido aberta ou o cache expirou." });
+            console.error("[Reveal Error]", e);
+            await sock.sendMessage(remoteJid, { text: "❌ Erro: Mídia expirada ou corrompida." });
         }
     }
 }
