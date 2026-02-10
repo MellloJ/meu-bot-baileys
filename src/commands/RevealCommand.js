@@ -52,10 +52,13 @@ class RevealCommand extends DonoCommandAbstractClass {
             }
 
             // 5. Reenvio sem gerar thumbnail (evita erro GLib)
-            const messagePayload = {
+            // Dentro do RevealCommand.js
+            await sock.sendMessage(remoteJid, { 
+                [mediaType]: buffer, 
                 caption: "🔓 *Mídia Revelada*",
-                mimetype: originalMimetype
-            };
+                mimetype: originalMimetype,
+                jpegThumbnail: null // <--- ADICIONE ISSO para matar o erro de GLib de vez
+            }, { quoted: msg });
             
             // Adiciona o buffer no campo correto (image ou video)
             messagePayload[mediaType] = buffer;

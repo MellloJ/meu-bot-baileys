@@ -1,9 +1,33 @@
+const http = require('http');
+const PORT = process.env.PORT || 10000;
+
+// Servidor de Resposta Imediata
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Bot Online');
+});
+
+// Forçamos o listen ANTES de qualquer outro require pesado
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ [Render] Monitor de porta ativo na porta ${PORT}`);
+});
+
+// Definimos um intervalo para evitar que o Render coloque o app em "sleep" (plano free)
+setInterval(() => {
+    http.get(`http://localhost:${PORT}`);
+}, 120000); // Acorda a cada 2 minutos
+
+
+
 const { makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal'); // Biblioteca para mostrar o QR no terminal
 const utils = require('./utils'); // Importa as funções comuns
 const config = require('./config'); // Importa as configurações do bot
 const groupManager = require('./services/GroupManager');
+
+const globalHandler = require('./globalHandler');
+const padrao = require('./grupos/padrao'); // Importe o padrão aqui
 
 // Variável global para controle de acesso liberado
 
@@ -138,7 +162,7 @@ async function iniciarBot() {
 
                 // Pega informações de quem foi marcado ou de quem a mensagem responde
                 // 2. Processamento dos Handlers (Global e Específico)
-                const globalHandler = require('./globalHandler');
+                // const globalHandler = require('./globalHandler');
                 const foiExecutadoGlobal = await globalHandler.handle(sock, msg, texto, metadata, utils);
 
                 if (!foiExecutadoGlobal) {
@@ -147,7 +171,7 @@ async function iniciarBot() {
                         await handlerEspecifico.handle(sock, msg, texto, metadata, utils);
                     } catch (err) {
                         try {
-                            const padrao = require('../grupos/padrao');
+                            // const padrao = require('../grupos/padrao');
                             await padrao.handle(sock, msg, texto, metadata, utils);
                         } catch (e) {}
                     }
@@ -162,14 +186,3 @@ async function iniciarBot() {
 
 iniciarBot();
 
-const http = require('http');
-const PORT = process.env.PORT || 10000; // Render usa a 10000 por padrão
-
-const server = http.createServer((req, res) => {
-    res.writeHead(200);
-    res.end('Bot Online');
-});
-
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Monitor de porta rodando na porta ${PORT}`);
-});
