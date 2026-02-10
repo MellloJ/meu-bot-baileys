@@ -1,6 +1,6 @@
-const DonoCommand = require("./DonoCommand");
+const DonoCommand = require("./DonoCommandAbstractClass");
 
-class IdCommand extends DonoCommand {
+class IdCommand extends DonoCommandAbstractClass {
     constructor() {
         super('id', 'Mostra o ID do grupo, usuário mencionado ou mensagem respondida');
     }

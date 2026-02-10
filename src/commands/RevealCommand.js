@@ -1,7 +1,7 @@
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const DonoCommand = require('./DonoCommandAbstractClass');
+const DonoCommandAbstractClass = require('./DonoCommandAbstractClass');
 
-class RevealCommand extends DonoCommand {
+class RevealCommand extends DonoCommandAbstractClass {
     constructor() {
         super('revelar', 'Envia uma mídia de visualização única como mídia normal.');
     }
