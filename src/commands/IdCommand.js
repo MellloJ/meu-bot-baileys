@@ -1,4 +1,4 @@
-const AdminCommands = require("./AdminCommands");
+const DonoCommand = require("./DonoCommand");
 
 class IdCommand extends DonoCommand {
     constructor() {
