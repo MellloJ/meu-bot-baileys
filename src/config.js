@@ -7,7 +7,7 @@ module.exports = {
     // 'DESATIVADO'     - Não responde ninguém (exceto Super Admins)
     STATUS_BOT: 'APENAS_LISTA', 
 
-    RESPONDER_PV : false, // Responder mensagens privadas (DM)?
+    RESPONDER_PV : true, // Responder mensagens privadas (DM)?
 
     // IDs dos grupos autorizados (pegue com o comando $id)
     GRUPOS_AUTORIZADOS: [

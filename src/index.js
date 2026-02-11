@@ -3,186 +3,165 @@ const PORT = process.env.PORT || 10000;
 
 // Servidor de Resposta Imediata
 const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.writeHead(200);
     res.end('Bot Online');
 });
 
-// Forçamos o listen ANTES de qualquer outro require pesado
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`✅ [Render] Monitor de porta ativo na porta ${PORT}`);
+server.on('error', (err) => {
+    console.error('⚠️ [HTTP Server Error]:', err.message);
 });
 
-// Definimos um intervalo para evitar que o Render coloque o app em "sleep" (plano free)
-setInterval(() => {
-    http.get(`http://localhost:${PORT}`);
-}, 120000); // Acorda a cada 2 minutos
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ [Monitor] Porta ${PORT} aberta.`);
+});
 
-
+// Só ative o Keep-alive se estiver no Render (ambiente de produção)
+if (process.env.RENDER) {
+    setInterval(() => {
+        http.get(`http://localhost:${PORT}`, (res) => {
+            res.on('data', () => {});
+        }).on('error', (err) => {
+            console.error('Keep-alive ping falhou:', err.message);
+        });
+    }, 120000);
+}
 
 const { makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const qrcode = require('qrcode-terminal'); // Biblioteca para mostrar o QR no terminal
-const utils = require('./utils'); // Importa as funções comuns
-const config = require('./config'); // Importa as configurações do bot
+const qrcode = require('qrcode-terminal');
+const utils = require('./utils');
+const config = require('./config');
 const groupManager = require('./services/GroupManager');
-
 const globalHandler = require('./globalHandler');
-const padrao = require('./grupos/padrao'); // Importe o padrão aqui
 
-// Variável global para controle de acesso liberado
-
-const liberado = true ; // Muda para 'false' para restringir o bot a admins apenas
-
-// Função para limpar o nome do grupo e transformá-lo em um formato válido para nomes de arquivos
-
+// Função auxiliar para nomes
 function limparNomeGrupo(nome) {
-    return nome
-        .normalize('NFD')                     // Remove acentos (ex: á -> a)
-        .replace(/[\u0300-\u036f]/g, '')      // Remove os acentos resultantes
-        .replace(/[^\w\s]/gi, '')             // Remove tudo que não for letra, número ou espaço
-        .trim()                               // Remove espaços no início e fim
-        .replace(/\s+/g, '_')                 // Substitui espaços por underline
-        .toLowerCase();                       // Deixa tudo em minúsculo
+    return nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w\s]/gi, '').trim().replace(/\s+/g, '_').toLowerCase();
 }
 
 async function iniciarBot() {
-    // 1. Configuração de Autenticação
-    // Isso cria uma pasta 'auth_info' para salvar seu login (não precisa escanear QR toda vez)
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
-    // 2. Criar o Socket (o "cliente" do WhatsApp)
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false, // Vamos usar o qrcode-terminal para ficar mais bonito
-        logger: pino({ level: 'silent' }) // Silencia logs desnecessários
+        printQRInTerminal: false,
+        logger: pino({ level: 'silent' })
     });
 
-    // 3. Monitorar a Conexão
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
-            // Se tiver QR Code, mostra no terminal
             qrcode.generate(qr, { small: true });
-            console.log('Escaneie o QR Code acima com seu WhatsApp!');
+            console.log('Escaneie o QR Code acima!');
         }
 
         if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Conexão caiu. Reconectando...', shouldReconnect ? 'Sim' : 'Não');
-            // Se não foi um logout manual, tenta reconectar
-            if (shouldReconnect) {
-                iniciarBot();
-            }
+            const statusCode = (lastDisconnect.error)?.output?.statusCode;
+            const deveReconectar = statusCode !== DisconnectReason.loggedOut;
+            console.log(`🔄 Conexão fechada (${statusCode}). Reconectando: ${deveReconectar}`);
+            if (deveReconectar) iniciarBot();
         } else if (connection === 'open') {
             console.log('✅ Bot conectado com sucesso!');
         }
     });
 
-    // 4. Salvar as credenciais sempre que atualizarem
     sock.ev.on('creds.update', saveCreds);
 
+    // Handler de Boas-vindas (Só funciona em grupos, obviamente)
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
         const config = groupManager.getGroupConfig(id);
-
         if (action === 'add' && config.funcoesExtras?.autoBemVindo) {
             const msgPadrao = `👋 Bem-vindo(a) ao grupo *${config.nome}*! Use $help para ver meus comandos.`;
-            
-            // Se existir mensagem customizada, usa ela. Se não, usa a padrão.
             const textoFinal = config.funcoesExtras.mensagemBemVindo || msgPadrao;
-
-            await sock.sendMessage(id, { 
-                text: textoFinal,
-                mentions: participants 
-            });
+            await sock.sendMessage(id, { text: textoFinal, mentions: participants });
         }
     });
 
+    // --- NOVA LÓGICA DE MENSAGENS ---
     sock.ev.on('messages.upsert', async ({ messages }) => {
         const msg = messages[0];
         if (!msg.message) return;
 
         const remoteJid = msg.key.remoteJid;
-        const texto = msg.message?.conversation || msg.message?.extendedTextMessage?.text || "";
+        const isGroup = remoteJid.endsWith('@g.us'); // Detecta se é grupo
         
-        // 1. Verificação Global: É um comando? (Mudamos para startsWith('$'))
+        const texto = msg.message?.conversation || 
+                      msg.message?.extendedTextMessage?.text || 
+                      msg.message?.imageMessage?.caption || 
+                      msg.message?.videoMessage?.caption || "";
+        
         if (!texto.startsWith('$')) return;
 
-        // 2. FILTRO DE SEGURANÇA (Config.js + Utils.js)
-        // Se não puder responder, o código morre aqui mesmo.
-        if (!utils.podeResponder(remoteJid, msg)) {
-            console.log(`[BLOQUEADO] Comando ignorado no grupo/chat: ${remoteJid}`);
+        // 1. Filtro de Segurança Geral
+        if (!utils.podeResponder(remoteJid, msg)) return;
 
-            return;
-        }
+        let metadata = null;
+        let groupConfig = null;
 
-        if (remoteJid.endsWith('@g.us')) {
-            try {
-                // 1. Carrega a config do GRUPO (vinda do GroupManager)
-                const groupConfig = groupManager.getGroupConfig(remoteJid);
-                
-                // 2. Carrega a config GLOBAL (vinda do seu require('./config'))
-                // Verifique se o seu arquivo ./config.js exporta GRUPOS_AUTORIZADOS e STATUS_BOT
-                const globalConfig = require('./config'); 
+        try {
+            // ====================================================
+            // LÓGICA ESPECÍFICA DE GRUPO (Só roda se for grupo)
+            // ====================================================
+            if (isGroup) {
+                // Carrega metadados e configs
+                metadata = await sock.groupMetadata(remoteJid);
+                groupConfig = groupManager.getGroupConfig(remoteJid);
+                const globalConfig = require('./config');
 
+                // Checagens de permissão do grupo
                 const ehDono = utils.ehSuperAdmin(msg);
-                
-                // Usamos ?. para evitar erro se a lista não existir na globalConfig
                 const ehGrupoVip = globalConfig.GRUPOS_AUTORIZADOS?.includes(remoteJid);
-                const ehGrupoPlus = utils.ehGrupoPlus(remoteJid); 
-
-                // Checagem segura do status do bot
+                const ehGrupoPlus = utils.ehGrupoPlus(remoteJid);
                 const podeExecutar = ehDono || ehGrupoVip || ehGrupoPlus || (globalConfig.STATUS_BOT === 'TODOS');
 
-                if (!podeExecutar) return;
+                if (!podeExecutar) return; // Bloqueia se o grupo não for permitido
 
-                // --- LÓGICA DO FILTRO DE LINKS --- (usando groupConfig agora)
+                // Filtro de Links
                 if (groupConfig.funcoesExtras?.filtroLinks && texto.includes('http')) {
-                    const metadata = await sock.groupMetadata(remoteJid);
                     const isAdmin = metadata.participants.find(p => p.id === msg.key.participant)?.admin;
-
                     if (!isAdmin) {
                         await sock.sendMessage(remoteJid, { delete: msg.key });
-                        return await sock.sendMessage(remoteJid, { text: "🚫 Links não são permitidos neste grupo!" });
+                        return await sock.sendMessage(remoteJid, { text: "🚫 Links proibidos!" });
                     }
                 }
-                
-                // if (!podeExecutar) return;
-
-                if (!podeExecutar) {
-                    // Opcional: avisar que não tem permissão
-                    await sock.sendMessage(remoteJid, { text: '❌ Desculpe, este comando é restrito a admins.' }, { quoted: msg });
-                    return;
-                }
-
-                // Buscamos os dados do grupo PRIMEIRO
-                const metadata = await sock.groupMetadata(remoteJid);
-                const nomeLimpo = limparNomeGrupo(metadata.subject);
-
-                // Pega informações de quem foi marcado ou de quem a mensagem responde
-                // 2. Processamento dos Handlers (Global e Específico)
-                // const globalHandler = require('./globalHandler');
-                const foiExecutadoGlobal = await globalHandler.handle(sock, msg, texto, metadata, utils);
-
-                if (!foiExecutadoGlobal) {
-                    try {
-                        const handlerEspecifico = require(`./grupos/${nomeLimpo}`);
-                        await handlerEspecifico.handle(sock, msg, texto, metadata, utils);
-                    } catch (err) {
-                        try {
-                            // const padrao = require('../grupos/padrao');
-                            await padrao.handle(sock, msg, texto, metadata, utils);
-                        } catch (e) {}
-                    }
-                }
-                
-            } catch (e) {
-                console.error("Erro no fluxo principal:", e);
+            } 
+            // ====================================================
+            // LÓGICA DE PRIVADO (PV)
+            // ====================================================
+            else {
+                // Aqui você pode adicionar lógica extra pra PV se quiser.
+                // Por enquanto, se passou pelo 'podeResponder', ele executa.
+                console.log(`📩 Comando recebido no PV de: ${remoteJid}`);
             }
+
+            // ====================================================
+            // EXECUÇÃO DOS COMANDOS
+            // ====================================================
+
+            // 1. Tenta executar no Handler Global (Figurinhas, Help, Ping, etc.)
+            // Funciona tanto para PV quanto Grupo
+            const foiExecutadoGlobal = await globalHandler.handle(sock, msg, texto, metadata, utils);
+
+            // 2. Se não foi global e É UM GRUPO, tenta handler específico do grupo
+            if (!foiExecutadoGlobal && isGroup) {
+                const nomeLimpo = limparNomeGrupo(metadata.subject);
+                try {
+                    const handlerEspecifico = require(`./grupos/${nomeLimpo}`);
+                    await handlerEspecifico.handle(sock, msg, texto, metadata, utils);
+                } catch (err) {
+                    try {
+                        const padrao = require('./grupos/padrao'); // Handler padrão de grupos
+                        await padrao.handle(sock, msg, texto, metadata, utils);
+                    } catch (e) {}
+                }
+            }
+
+        } catch (e) {
+            console.error("Erro no processamento da mensagem:", e);
         }
     });
 }
 
 iniciarBot();
-

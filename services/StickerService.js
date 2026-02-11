@@ -1,8 +1,5 @@
-// src/services/StickerService.js
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
-const axios = require('axios');
-const { createCanvas, loadImage, registerFont } = require('canvas');
-
+const Jimp = require('jimp');
 
 class StickerService {
     constructor() {
@@ -21,79 +18,57 @@ class StickerService {
         });
     }
 
-    // src/services/StickerService.js
-
-    // src/services/StickerService.js
-
     async createQuote(text, avatarUrl, name) {
-        const canvas = createCanvas(512, 512);
-        const ctx = canvas.getContext('2d');
-
-        // Fundo Arredondado (Estilo WhatsApp Dark)
-        ctx.fillStyle = '#1f2c33';
-        this.roundRect(ctx, 10, 10, 492, 250, 20, true);
-
-        // Desenhar Avatar (Círculo)
         try {
-            const avatar = await loadImage(avatarUrl);
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(60, 60, 35, 0, Math.PI * 2);
-            ctx.closePath();
-            ctx.clip();
-            ctx.drawImage(avatar, 25, 25, 70, 70);
-            ctx.restore();
-        } catch (e) {
-            ctx.fillStyle = '#666';
-            ctx.beginPath();
-            ctx.arc(60, 60, 35, 0, Math.PI * 2);
-            ctx.fill();
-        }
+            // 1. Criar o fundo (Estilo WhatsApp Dark: #1f2c33)
+            // No Jimp, cores são em hexadecimal ARGB ou via css-color-string
+            const canvas = new Jimp(512, 512, 0x00000000); // Transparente
+            const bubble = new Jimp(492, 250, '#1f2c33'); // Fundo do balão
 
-        // Nome do Usuário
-        ctx.fillStyle = '#d1d7db';
-        ctx.font = 'bold 24px sans-serif';
-        ctx.fillText(name.slice(0, 20), 110, 55);
-
-        // Texto da Mensagem
-        ctx.fillStyle = '#e9edef';
-        ctx.font = '22px sans-serif';
-        this.wrapText(ctx, text, 110, 95, 360, 30);
-
-        return canvas.toBuffer('image/png');
-    }
-
-    // Funções auxiliares para desenhar
-    roundRect(ctx, x, y, width, height, radius, fill) {
-        ctx.beginPath();
-        ctx.moveTo(x + radius, y);
-        ctx.lineTo(x + width - radius, y);
-        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-        ctx.lineTo(x + width, y + height - radius);
-        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-        ctx.lineTo(x + radius, y + height);
-        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-        ctx.lineTo(x, y + radius);
-        ctx.quadraticCurveTo(x, y, x + radius, y);
-        ctx.closePath();
-        if (fill) ctx.fill();
-    }
-
-    wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-        const words = text.split(' ');
-        let line = '';
-        for (let n = 0; n < words.length; n++) {
-            let testLine = line + words[n] + ' ';
-            let metrics = ctx.measureText(testLine);
-            if (metrics.width > maxWidth && n > 0) {
-                ctx.fillText(line, x, y);
-                line = words[n] + ' ';
-                y += lineHeight;
-            } else {
-                line = testLine;
+            // 2. Carregar Avatar e transformar em círculo
+            let avatar;
+            try {
+                avatar = await Jimp.read(avatarUrl);
+                avatar.resize(70, 70);
+                avatar.circle(); // Transforma em círculo automaticamente
+            } catch (e) {
+                avatar = new Jimp(70, 70, '#666666');
+                avatar.circle();
             }
+
+            // 3. Carregar Fontes (Jimp usa fontes bitmap .fnt)
+            // Jimp já vem com algumas fontes padrão.
+            const fontName = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE); // Para o Nome
+            const fontText = await Jimp.loadFont(Jimp.FONT_SANS_16_WHITE); // Para a Mensagem
+
+            // 4. Montar a imagem
+            canvas.composite(bubble, 10, 10); // Coloca o balão no fundo
+            canvas.composite(avatar, 25, 25); // Coloca o avatar
+
+            // Escrever o Nome
+            canvas.print(fontName, 110, 45, name.slice(0, 20));
+
+            // Escrever o Texto (Wrap automático do Jimp)
+            canvas.print(
+                fontText,
+                110,
+                95,
+                {
+                    text: text,
+                    alignmentX: Jimp.HORIZONTAL_ALIGN_LEFT,
+                    alignmentY: Jimp.VERTICAL_ALIGN_TOP
+                },
+                360 // maxWidth
+            );
+
+            // 5. Retornar Buffer
+            return await canvas.getBufferAsync(Jimp.MIME_PNG);
+        } catch (error) {
+            console.error("Erro no StickerService (Jimp):", error);
+            // Fallback: Retorna apenas uma imagem de erro se tudo falhar
+            const errorImg = new Jimp(512, 512, '#ff0000');
+            return await errorImg.getBufferAsync(Jimp.MIME_PNG);
         }
-        ctx.fillText(line, x, y);
     }
 }
 

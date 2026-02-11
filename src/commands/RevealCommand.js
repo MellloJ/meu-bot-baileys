@@ -1,78 +1,70 @@
-// src/commands/RevealCommand.js
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const DonoCommandAbstractClass = require('./DonoCommandAbstractClass');
 
 class RevealCommand extends DonoCommandAbstractClass {
     constructor() {
-        super('revelar', 'Revela mídia de visualização única (sem processar miniatura).');
+        super('revelar', 'Revela vídeos e imagens de visualização única.');
     }
 
     async handleDono(sock, msg, context, metadata, utils) {
         const { remoteJid } = msg.key;
-        
-        // 1. Localiza a mensagem marcada (quoted)
         const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         
-        if (!quoted) {
-            return sock.sendMessage(remoteJid, { text: "⚠️ Marque a mensagem de visualização única!" });
-        }
-
-        // 2. Busca profunda da mídia (V1, V2 e V2Extension)
-        const viewOnceMsg = quoted.viewOnceMessageV2?.message || 
-                            quoted.viewOnceMessage?.message || 
-                            quoted.viewOnceMessageV2Extension?.message ||
-                            quoted;
-
-        const imageMessage = viewOnceMsg.imageMessage;
-        const videoMessage = viewOnceMsg.videoMessage;
-        const media = imageMessage || videoMessage;
-
-        if (!media) {
-            return sock.sendMessage(remoteJid, { text: "❌ Mídia não encontrada ou formato incompatível." });
-        }
+        if (!quoted) return sock.sendMessage(remoteJid, { text: "⚠️ Marque um vídeo ou imagem de visualização única!" });
 
         try {
-            // CORREÇÃO DA REAÇÃO: Baileys usa sendMessage com 'react'
-            await sock.sendMessage(remoteJid, {
-                react: {
-                    text: '🔓',
-                    key: msg.key
-                }
-            });
+            // 1. EXTRAÇÃO DIRETA (Baseada no seu Debug)
+            // Tentamos pegar o vídeo ou imagem, não importa onde estejam
+            const video = quoted.videoMessage || quoted.viewOnceMessageV2?.message?.videoMessage || quoted.viewOnceMessage?.message?.videoMessage;
+            const image = quoted.imageMessage || quoted.viewOnceMessageV2?.message?.imageMessage || quoted.viewOnceMessage?.message?.imageMessage;
+            
+            const mediaData = video || image;
+            const type = video ? 'video' : 'image';
 
-            // 3. Define o tipo e o mimetype ORIGINAL
-            const mediaType = imageMessage ? 'image' : 'video';
-            const originalMimetype = media.mimetype || (imageMessage ? 'image/jpeg' : 'video/mp4');
+            if (!mediaData) {
+                return sock.sendMessage(remoteJid, { text: "❌ Não encontrei mídia neste formato." });
+            }
 
-            // 4. Download do Buffer
-            const stream = await downloadContentFromMessage(media, mediaType);
+            // O Erro "empty media key" acontece aqui se mediaData for passado incompleto.
+            // Vamos garantir que ele tenha o que precisa.
+            if (!mediaData.mediaKey && !quoted.mediaKey) {
+                // Tentativa de recuperação: em algumas versões a key fica no topo
+                mediaData.mediaKey = quoted.mediaKey; 
+            }
+
+            await sock.sendMessage(remoteJid, { react: { text: '⏳', key: msg.key } });
+
+            // 2. DOWNLOAD DO CONTEÚDO
+            // Passamos o objeto mediaData (que contém a url, fileSha, etc)
+            const stream = await downloadContentFromMessage(mediaData, type);
             let buffer = Buffer.from([]);
             for await (const chunk of stream) {
                 buffer = Buffer.concat([buffer, chunk]);
             }
 
-            // 5. Reenvio sem gerar thumbnail (evita erro GLib)
-            // Dentro do RevealCommand.js
-            await sock.sendMessage(remoteJid, { 
-                [mediaType]: buffer, 
-                caption: "🔓 *Mídia Revelada*",
-                mimetype: originalMimetype,
-                jpegThumbnail: null // <--- ADICIONE ISSO para matar o erro de GLib de vez
-            }, { quoted: msg });
-            
-            // Adiciona o buffer no campo correto (image ou video)
-            messagePayload[mediaType] = buffer;
-            
-            if (videoMessage) {
-                messagePayload.gifPlayback = false;
+            // 3. ENVIO DA MÍDIA REVELADA
+            const options = {
+                caption: `🔓 *Mídia Revelada*`,
+                mimetype: mediaData.mimetype,
+                jpegThumbnail: null // Remove processamento de imagem que trava no Linux
+            };
+
+            if (type === 'video') {
+                await sock.sendMessage(remoteJid, { video: buffer, ...options }, { quoted: msg });
+            } else {
+                await sock.sendMessage(remoteJid, { image: buffer, ...options }, { quoted: msg });
             }
 
-            // Enviamos o arquivo bruto
-            await sock.sendMessage(remoteJid, messagePayload, { quoted: msg });
+            await sock.sendMessage(remoteJid, { react: { text: '✅', key: msg.key } });
 
         } catch (e) {
             console.error("[Reveal Error]", e);
-            await sock.sendMessage(remoteJid, { text: "❌ Erro: Mídia expirada ou falha no download." });
+            // Se o erro for a media key vazia, avisamos o usuário de forma clara
+            if (e.message.includes('media key')) {
+                await sock.sendMessage(remoteJid, { text: "❌ Erro de Criptografia: O WhatsApp não forneceu a chave desta mídia. Tente abrir a mídia no celular antes de usar o comando." });
+            } else {
+                await sock.sendMessage(remoteJid, { text: "❌ Erro ao processar mídia: " + e.message });
+            }
         }
     }
 }

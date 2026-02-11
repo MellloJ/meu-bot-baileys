@@ -48,8 +48,10 @@ module.exports = {
 
     // A GRANDE VALIDAÇÃO
     podeResponder(remoteJid, msg) {
+        // return true; // DESATIVA O FILTRO DE RESPOSTA (PARA TESTES)
+
         // 1. Se for Super Admin, ignora qualquer trava e responde sempre
-        if (this.ehSuperAdmin(msg)) return true;
+        if (this.ehSuperAdmin(msg) || this.temPermissao(msg)) return true;
 
         // 2. Se o bot estiver totalmente desativado
         if (config.STATUS_BOT === 'DESATIVADO') return false;
