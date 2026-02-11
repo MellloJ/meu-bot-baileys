@@ -146,7 +146,7 @@ async function iniciarBot() {
         const isGroup = remoteJid.endsWith('@g.us');
 
         let metadata = null;
-        let groupConfig = {}; // Inicia vazio para evitar crash
+        let groupConfig = {}; 
 
         const texto = msg.message?.conversation || 
                       msg.message?.extendedTextMessage?.text || 
@@ -158,25 +158,13 @@ async function iniciarBot() {
             metadata = await getGroupMetadata(sock, remoteJid);
             if (!metadata) return;
 
-            // 2. Pega Configuração do Grupo
+            // 2. Pega Configuração
             const configDoGerenciador = groupManager.getGroupConfig(remoteJid);
-            
-            // Se o gerenciador retornar algo, usamos. Se não, mantemos objeto vazio.
             if (configDoGerenciador) {
                 groupConfig = configDoGerenciador;
             }
 
-            // --- DEBUG: ISSO VAI TE MOSTRAR NO TERMINAL SE O SPAM TA ATIVO ---
-            // console.log(`Config do Grupo ${remoteJid}:`, groupConfig.funcoesExtras);
-            // -----------------------------------------------------------------
-
-            // DICA: Se quiser forçar o teste mesmo sem configurar no JSON, descomente abaixo:
-            // if (!groupConfig.funcoesExtras) groupConfig.funcoesExtras = {};
-            // groupConfig.funcoesExtras.antiSpam = true; 
-
             const globalConfig = require('./config');
-
-            // Checagens de permissão de execução do BOT
             const ehDono = utils.ehSuperAdmin(msg);
             const ehGrupoVip = globalConfig.GRUPOS_AUTORIZADOS?.includes(remoteJid);
             const ehGrupoPlus = utils.ehGrupoPlus(remoteJid);
@@ -198,74 +186,77 @@ async function iniciarBot() {
                 }
             }
 
+            // === ANTI-SPAM ===
             // === ANTI-SPAM (5x em 30s) ===
-            // Aqui garantimos que funcoesExtras existe antes de acessar antiSpam
-            if (groupConfig.funcoesExtras && groupConfig.funcoesExtras.antispam) {
-                
-                // console.log('🔍 Verificando spam...'); // Debug
-                
+            // === ANTI-SPAM (5x em 30s) ===
+            // Verifica se a função está ativa no JSON
+            const spamAtivo = groupConfig.funcoesExtras?.antiSpam || groupConfig.funcoesExtras?.antispam;
+
+            if (spamAtivo) {
                 const senderId = msg.key.participant;
                 const spamKey = `${remoteJid}-${senderId}`;
                 const now = Date.now();
                 
-                let userSpamData = spamTracker.get(spamKey) || { 
-                    count: 0, lastMsg: '', startTime: now 
-                };
+                let userSpamData = spamTracker.get(spamKey) || { count: 0, lastMsg: '', startTime: now };
 
-                // Reseta se passou de 30 segundos
+                // Reseta contagem se passou de 30 segundos
                 if (now - userSpamData.startTime > 30000) {
                     userSpamData = { count: 1, lastMsg: texto, startTime: now };
                 } else {
-                    // Se for a mesma mensagem (e não for vazia)
+                    // Se o texto for igual e não vazio
                     if (texto === userSpamData.lastMsg && texto.length > 0) {
                         userSpamData.count++;
                     } else {
-                        // Se mudou o texto, reseta contagem
                         userSpamData = { count: 1, lastMsg: texto, startTime: now };
                     }
                 }
+                
+                // Salva o estado atual
                 spamTracker.set(spamKey, userSpamData);
 
-                // Se atingir 5 mensagens iguais
+                // --- HORA DA PUNIÇÃO ---
                 if (userSpamData.count >= 5) {
-                    // console.log(`🚨 SPAM DETECTADO: ${senderId} (${userSpamData.count}x)`);
-
-                    const isBot = msg.key.fromMe;
                     
-                    // Verifica se quem mandou é Admin (Admin pode fazer spam)
-                    const participantInfo = metadata?.participants?.find(p => p.id === senderId);
-                    const isUserAdmin = !!participantInfo?.admin || utils.ehSuperAdmin(msg);
-                    
-                    // Verifica se o Bot é Admin (para poder banir)
-                    const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-                    const botInfo = metadata?.participants?.find(p => p.id === botId);
-                    const botIsAdmin = !!botInfo?.admin;
+                    // 1. Checagem de SEGURANÇA: Não tentar banir Admins/Dono
+                    // Isso evita que o bot tente banir o dono e falhe (ou consiga, se for superadmin)
+                    const alvoEhAdmin = utils.isAdmin(msg, metadata); // Usa sua função utils pronta
+                    const alvoEhSuper = utils.ehSuperAdmin(msg);
 
-                    // Lógica de Punição
-                    // Se NÃO for admin e NÃO for o próprio bot
-                    if (!isUserAdmin && !isBot) {
-                        if (botIsAdmin) {
-                            // console.log(`🔨 Banindo ${senderId}...`);
-                            
-                            // Remove o usuário
-                            await sock.groupParticipantsUpdate(remoteJid, [senderId], 'remove');
-                            
-                            // Avisa e limpa tracker
-                            await sock.sendMessage(remoteJid, { 
-                                text: `🚫 @${senderId.split('@')[0]} foi removido por flood/spam.`,
-                                mentions: [senderId]
-                            });
-                            spamTracker.delete(spamKey);
-                            return; // Para execução
-                        } else {
-                            // Bot não é admin, só avisa
-                            await sock.sendMessage(remoteJid, { text: "⚠️ Detectei spam, mas preciso ser Admin para remover!" });
-                            spamTracker.delete(spamKey);
-                        }
-                    } else {
-                        // console.log("🛡️ Usuário é admin ou o próprio bot. Punição ignorada.");
-                        // Opcional: Resetar tracker para admins não ficarem com logs infinitos
-                        if(userSpamData.count > 10) spamTracker.delete(spamKey);
+                    if (alvoEhAdmin || alvoEhSuper || utils.temPermissao(msg)) {
+                        console.log(`🛡️ Spam ignorado: ${senderId} tem imunidade.`);
+                        // Zera o contador para não ficar logando infinito
+                        userSpamData.count = 0; 
+                        spamTracker.set(spamKey, userSpamData);
+                        return; 
+                    }
+
+                    // 2. TENTATIVA DE BANIMENTO DIRETA (Try/Catch)
+                    console.log(`🚨 Tentando banir ${senderId} por spam...`);
+
+                    try {
+                        // Tenta remover. Se o bot NÃO for admin, isso vai gerar um erro e pular para o CATCH
+                        await sock.groupParticipantsUpdate(remoteJid, [senderId], 'remove');
+                        
+                        // Se chegou aqui, funcionou!
+                        await sock.sendMessage(remoteJid, { 
+                            text: `🚫 @${senderId.split('@')[0]} removido(a) por flood/spam.`,
+                            mentions: [senderId]
+                        });
+                        
+                        // Limpa o tracker do banido
+                        spamTracker.delete(spamKey);
+
+                    } catch (err) {
+                        // 3. CAPTURA DO ERRO (Bot não é admin ou falha de conexão)
+                        console.log(`❌ Falha ao banir (provavelmente sem permissão): ${err.message}`);
+                        
+                        await sock.sendMessage(remoteJid, { 
+                            text: "⚠️ Detectei spam, mas não tenho permissão de Admin para remover o usuário!" 
+                        });
+
+                        // Reseta para não ficar mandando a msg de erro 50 vezes
+                        userSpamData.count = 0;
+                        spamTracker.set(spamKey, userSpamData);
                     }
                 }
             }
