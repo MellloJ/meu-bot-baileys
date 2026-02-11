@@ -11,8 +11,9 @@ module.exports = {
 
     // IDs dos grupos autorizados (pegue com o comando $id)
     GRUPOS_AUTORIZADOS: [
-        '120363423834043528@g.us',
-        '120363400552496278@g.us',
+        '120363423834043528@g.us', // Grupo de teste
+        '120363400552496278@g.us', // Bazinga of Programs
+        '557191610645-1591037148@g.us' // Baba
     ],
 
     // GRUPOS PLUS: Aqui todos são "admins" para o bot
