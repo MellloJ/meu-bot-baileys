@@ -20,6 +20,11 @@ class ConfigCommand extends AdminCommands {
                 await sock.sendMessage(remoteJid, { text: `🔗 Filtro de links: ${config.funcoesExtras.filtroLinks ? '✅ ATIVADO' : '❌ DESATIVADO'}` });
                 break;
 
+            case 'antispam':
+                config.funcoesExtras.antispam = !config.funcoesExtras.antispam;
+                await sock.sendMessage(remoteJid, { text: `🔗 Anti-Spam: ${config.funcoesExtras.antispam ? '✅ ATIVADO' : '❌ DESATIVADO'}` });
+                break;
+
             case 'welcome':
                 config.funcoesExtras.autoBemVindo = !config.funcoesExtras.autoBemVindo;
                 await sock.sendMessage(remoteJid, { text: `👋 Auto Bem-vindo: ${config.funcoesExtras.autoBemVindo ? '✅ ATIVADO' : '❌ DESATIVADO'}` });
@@ -36,8 +41,9 @@ class ConfigCommand extends AdminCommands {
             default:
                 const status = `⚙️ *CONFIGURAÇÕES DO GRUPO*\n\n` +
                                `1️⃣ *Link:* ${config.funcoesExtras.filtroLinks ? '✅' : '❌'} (Use: \`$config link\`)\n` +
-                               `2️⃣ *Welcome:* ${config.funcoesExtras.autoBemVindo ? '✅' : '❌'} (Use: \`$config welcome\`)\n` +
-                               `3️⃣ *Texto:* \`$config texto <mensagem>\`\n\n` +
+                               `2️⃣ *Anti-Spam:* ${config.funcoesExtras.antispam ? '✅' : '❌'} (Use: \`$config antispam\`)\n` +
+                               `3️⃣ *Welcome:* ${config.funcoesExtras.autoBemVindo ? '✅' : '❌'} (Use: \`$config welcome\`)\n` +
+                               `4️⃣ *Texto:* \`$config texto <mensagem>\`\n\n` +
                                `*Texto Atual:* ${config.funcoesExtras.mensagemBemVindo || 'Padrão'}`;
                 await sock.sendMessage(remoteJid, { text: status });
                 break;

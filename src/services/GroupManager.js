@@ -19,6 +19,7 @@ class GroupManager {
             funcoesExtras: {
                 autoBemVindo: false,
                 filtroLinks: false,
+                antispam: false,
                 mensagemBemVindo: ""
             },
             customCommands: {}
