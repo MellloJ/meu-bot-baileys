@@ -1,4 +1,4 @@
-// src/core/AdminCommand.js
+// src/commands/DonoCommandAbstractClass.js
 
 const Command = require("../core/Command");
 

@@ -1,3 +1,5 @@
+// src/commands/AddCommand.js
+
 const AdminCommands = require("./AdminCommands");
 
 class AddCommand extends AdminCommands {

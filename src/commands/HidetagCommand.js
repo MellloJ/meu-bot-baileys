@@ -1,3 +1,5 @@
+// src/commands/HidetagCommand.js
+
 const AdminCommands = require("./AdminCommands");
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 

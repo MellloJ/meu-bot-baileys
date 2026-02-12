@@ -1,3 +1,5 @@
+// src/commands/RevealCommand.js
+
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const DonoCommandAbstractClass = require('./DonoCommandAbstractClass');
 

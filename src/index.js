@@ -290,6 +290,120 @@ async function iniciarBot() {
             console.error("Erro no processamento da mensagem:", e);
         }
     });
+
+    // ============================================================
+    // SISTEMA DE DIVULGAÇÃO AUTOMÁTICA (Resiliente ao Render)
+    // ============================================================
+    
+    // Texto de divulgação focado em VENDA e BENEFÍCIOS
+    const textoVenda = `🤖 *GOSTOU DA ORGANIZAÇÃO DESTE GRUPO?*
+
+        Você percebeu como este grupo é seguro, organizado e interativo? Isso é trabalho do *Bot Mello*! 🚀
+
+        Você também pode ter essa automação nos seus grupos:
+
+        🛡️ *SEGURANÇA BLINDADA*
+        • *Anti-Link:* Bloqueia divulgação de outros grupos na hora.
+        • *Anti-Spam:* Remove quem manda mensagens repetidas/travas.
+        • *Anti-Fake:* Identifica e remove números estrangeiros suspeitos.
+
+        ⚖️ *MODERAÇÃO INTELIGENTE*
+        • *Boas-vindas:* Receba novos membros com texto personalizado.
+        • *Comandos Admin:* Use $kill para banir e $hidetag para avisos.
+        • *Limpeza:* Mantenha o grupo focado no assunto.
+
+        🎉 *DIVERSÃO E ENGAJAMENTO*
+        • *Figurinhas:* Cria stickers de fotos e vídeos ($figurinha).
+        • *Música:* Busca letras instantaneamente ($letra).
+        • *Espião:* Revela mensagens de visualização única ($revelar).
+
+        💡 *Pare de perder tempo cuidando dos seus grupos manualmente!*
+        Deixe o bot trabalhar 24h por dia para você.
+
+        👇 *ENTRE EM CONTATO PARA SABER MAIS E SE AUTOMATIZE AGORA:*
+        wa.me/5563991192094`;
+
+    // 2. Função que faz o envio (com delay de segurança)
+    async function dispararDivulgacao(sock) {
+        // Recarrega config para pegar grupos novos sem reiniciar
+        delete require.cache[require.resolve('./config')];
+        const configAtual = require('./config'); 
+        const gruposAlvo = configAtual.AUTO_DIVULGAR || [];
+
+        if (gruposAlvo.length === 0) {
+            console.log("⚠️ Nenhum grupo configurado para divulgação.");
+            return;
+        }
+
+        console.log(`📢 Iniciando divulgação para ${gruposAlvo.length} grupos...`);
+
+        for (const grupoId of gruposAlvo) {
+            try {
+                // Envia com AdReply (Card bonito)
+                await sock.sendMessage(grupoId, { 
+                    text: textoVenda,
+                    contextInfo: {
+                        externalAdReply: {
+                            title: "🤖 Automação para Grupos",
+                            body: "Clique para falar com o Jotta",
+                            thumbnailUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712109.png", // Pode trocar por uma URL de foto sua
+                            sourceUrl: "https://wa.me/5563991192094",
+                            mediaType: 1,
+                            renderLargerThumbnail: true
+                        }
+                    }
+                });
+                
+                console.log(`✅ Divulgação enviada para: ${grupoId}`);
+
+                // DELAY DE SEGURANÇA (Random entre 10s e 20s)
+                const delay = Math.floor(Math.random() * (20000 - 10000 + 1) + 10000);
+                await new Promise(resolve => setTimeout(resolve, delay));
+
+            } catch (err) {
+                console.error(`❌ Erro ao divulgar em ${grupoId}:`, err.message);
+            }
+        }
+        console.log("🏁 Fim da rotina de divulgação.");
+    }
+
+    // 3. Cron Job (Verificador de Horário)
+    let ultimoHorarioEnvio = null;
+
+    setInterval(async () => {
+        const now = new Date();
+        // Garante horário de Brasília (-3) mesmo no Render (UTC)
+        const horaBrasilia = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+        
+        const hora = horaBrasilia.getHours();
+        const minuto = horaBrasilia.getMinutes();
+        const horarioAtual = `${hora}:${minuto}`;
+
+        // Horários: 09:00 e 17:00
+        const horariosDisparo = [{ h: 9, m: 0 }, { h: 17, m: 0 }];
+        const deveDisparar = horariosDisparo.some(t => t.h === hora && t.m === minuto);
+
+        if (deveDisparar && ultimoHorarioEnvio !== horarioAtual) {
+            ultimoHorarioEnvio = horarioAtual;
+            await dispararDivulgacao(sock);
+        }
+    }, 30 * 1000); // Checa a cada 30s
+
+    // 4. LISTENER PARA COMANDO DE TESTE MANUAL
+    // Colocamos um listener extra aqui só para capturar o comando de teste
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        const m = messages[0];
+        if (!m.message) return;
+        const key = m.key;
+        const texto = m.message.conversation || m.message.extendedTextMessage?.text || "";
+
+        // Verifica se é o dono executando
+        if (texto === '$testardivulgacao' && utils.ehSuperAdmin(m)) {
+            await sock.sendMessage(key.remoteJid, { text: "🔄 Iniciando teste de divulgação agora..." });
+            await dispararDivulgacao(sock);
+            await sock.sendMessage(key.remoteJid, { text: "✅ Teste finalizado!" });
+        }
+    });
 }
 
 iniciarBot();

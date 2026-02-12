@@ -1,4 +1,4 @@
-// src/core/AdminCommand.js
+// src/commands/AdminCommands.js
 
 const Command = require("../core/Command");
 

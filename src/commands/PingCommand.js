@@ -1,3 +1,5 @@
+// src/commands/PingCommand.js
+
 const Command = require("../core/Command");
 
 class PingCommand extends Command {

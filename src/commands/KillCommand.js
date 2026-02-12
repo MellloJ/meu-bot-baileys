@@ -1,3 +1,5 @@
+// src/commands/KillCommand.js
+
 const AdminCommands = require("./AdminCommands");
 
 class KillCommand extends AdminCommands {
