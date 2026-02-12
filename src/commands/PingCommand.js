@@ -18,6 +18,12 @@ class PingCommand extends Command {
         const latenciaMs = Date.now() - timestampMsg;
         const latenciaHumana = utils.formatarLatencia(latenciaMs);
 
+        if(remoteJid === "559484097020-1527216572@g.us"){
+            await sock.sendMessage(remoteJid, { 
+            text: `🏓 *O deploy automatico funciona!*\n\n*Resposta:* ${latenciaHumana}\n*Servidor online há:* ${tempoHumano}` 
+        }, { quoted: msg });
+        }
+
         await sock.sendMessage(remoteJid, { 
             text: `🏓 *Pong!*\n\n*Resposta:* ${latenciaHumana}\n*Servidor online há:* ${tempoHumano}` 
         }, { quoted: msg });
