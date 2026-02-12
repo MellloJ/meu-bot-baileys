@@ -30,8 +30,8 @@ module.exports = {
     ],
 
     AUTO_DIVULGAR: [
-        // '120363404272026931@g.us', // Região Esquecida
-        // '120363165318887286@g.us', // Reino Clover
+        '120363404272026931@g.us', // Região Esquecida
+        '120363165318887286@g.us', // Reino Clover
         '559484097020-1527216572@g.us', // Anotações
     ],
 };
