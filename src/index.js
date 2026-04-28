@@ -1,5 +1,11 @@
 const http = require('http');
-const { makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
+const { 
+    makeWASocket, 
+    useMultiFileAuthState, 
+    DisconnectReason,
+    getContentType,
+    fetchLatestBaileysVersion
+} = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 const utils = require('./utils');
@@ -74,9 +80,13 @@ function limparNomeGrupo(nome) {
 }
 
 async function iniciarBot() {
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    console.log(`📡 Usando WhatsApp Web v${version.join('.')} (Versão atualizada: ${isLatest})`);
+
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
 
     const sock = makeWASocket({
+        version: version,
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }) // Mantive silent para limpar o terminal
