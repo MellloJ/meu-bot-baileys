@@ -8,12 +8,28 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     curl \
+<<<<<<< Updated upstream
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Baixamos o yt-dlp diretamente e damos permissão de execução
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp
+=======
+    nodejs \
+    npm \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Criar ambiente virtual Python
+RUN python3 -m venv /opt/venv
+
+# Adicionar venv no PATH
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Instalar yt-dlp dentro do venv
+RUN pip install yt-dlp
+>>>>>>> Stashed changes
 
 # Definimos o diretório de trabalho
 WORKDIR /app
