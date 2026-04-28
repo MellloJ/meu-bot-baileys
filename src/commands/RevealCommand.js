@@ -3,6 +3,33 @@
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const DonoCommandAbstractClass = require('./DonoCommandAbstractClass');
 
+// 🧠 Função recursiva para desempacotar a "Matrioska" do WhatsApp
+function extractMediaMessage(msgContent) {
+    if (!msgContent) return null;
+
+    // Se achou a mídia na raiz, retorna ela e o tipo
+    if (msgContent.imageMessage) return { type: 'image', data: msgContent.imageMessage };
+    if (msgContent.videoMessage) return { type: 'video', data: msgContent.videoMessage };
+
+    // Lista de "cascas" que o WhatsApp usa para esconder a mídia
+    const wrappers = [
+        'viewOnceMessageV2', 
+        'viewOnceMessage', 
+        'viewOnceMessageV2Extension', 
+        'ephemeralMessage', 
+        'documentWithCaptionMessage'
+    ];
+
+    // Procura dentro das cascas recursivamente
+    for (const wrapper of wrappers) {
+        if (msgContent[wrapper]?.message) {
+            return extractMediaMessage(msgContent[wrapper].message); // Chama a si mesma para a próxima camada
+        }
+    }
+
+    return null;
+}
+
 class RevealCommand extends DonoCommandAbstractClass {
     constructor() {
         super('revelar', 'Revela vídeos e imagens de visualização única.');
@@ -15,29 +42,24 @@ class RevealCommand extends DonoCommandAbstractClass {
         if (!quoted) return sock.sendMessage(remoteJid, { text: "⚠️ Marque um vídeo ou imagem de visualização única!" });
 
         try {
-            // 1. EXTRAÇÃO DIRETA (Baseada no seu Debug)
-            // Tentamos pegar o vídeo ou imagem, não importa onde estejam
-            const video = quoted.videoMessage || quoted.viewOnceMessageV2?.message?.videoMessage || quoted.viewOnceMessage?.message?.videoMessage;
-            const image = quoted.imageMessage || quoted.viewOnceMessageV2?.message?.imageMessage || quoted.viewOnceMessage?.message?.imageMessage;
-            
-            const mediaData = video || image;
-            const type = video ? 'video' : 'image';
+            // 1. EXTRAÇÃO INTELIGENTE (O Fim do Erro da Media Key)
+            const mediaInfo = extractMediaMessage(quoted);
 
-            if (!mediaData) {
-                return sock.sendMessage(remoteJid, { text: "❌ Não encontrei mídia neste formato." });
+            if (!mediaInfo) {
+                return sock.sendMessage(remoteJid, { text: "❌ Não encontrei nenhuma mídia válida e revelável nessa mensagem." });
             }
 
-            // O Erro "empty media key" acontece aqui se mediaData for passado incompleto.
-            // Vamos garantir que ele tenha o que precisa.
-            if (!mediaData.mediaKey && !quoted.mediaKey) {
-                // Tentativa de recuperação: em algumas versões a key fica no topo
-                mediaData.mediaKey = quoted.mediaKey; 
+            const mediaData = mediaInfo.data;
+            const type = mediaInfo.type;
+
+            // 🛡️ TRAVA DE SEGURANÇA: Se a chave realmente não existir, barra antes de quebrar a aplicação
+            if (!mediaData.mediaKey) {
+                return sock.sendMessage(remoteJid, { text: "❌ O WhatsApp não forneceu a chave (mediaKey) de descriptografia. Isso pode acontecer se a mensagem for antiga ou o Baileys não tiver interceptado a chave a tempo." });
             }
 
             await sock.sendMessage(remoteJid, { react: { text: '⏳', key: msg.key } });
 
             // 2. DOWNLOAD DO CONTEÚDO
-            // Passamos o objeto mediaData (que contém a url, fileSha, etc)
             const stream = await downloadContentFromMessage(mediaData, type);
             let buffer = Buffer.from([]);
             for await (const chunk of stream) {
@@ -48,7 +70,7 @@ class RevealCommand extends DonoCommandAbstractClass {
             const options = {
                 caption: `🔓 *Mídia Revelada*`,
                 mimetype: mediaData.mimetype,
-                jpegThumbnail: null // Remove processamento de imagem que trava no Linux
+                jpegThumbnail: null // Excelente prática para servidores Linux
             };
 
             if (type === 'video') {
@@ -61,12 +83,7 @@ class RevealCommand extends DonoCommandAbstractClass {
 
         } catch (e) {
             console.error("[Reveal Error]", e);
-            // Se o erro for a media key vazia, avisamos o usuário de forma clara
-            if (e.message.includes('media key')) {
-                await sock.sendMessage(remoteJid, { text: "❌ Erro de Criptografia: O WhatsApp não forneceu a chave desta mídia. Tente abrir a mídia no celular antes de usar o comando." });
-            } else {
-                await sock.sendMessage(remoteJid, { text: "❌ Erro ao processar mídia: " + e.message });
-            }
+            await sock.sendMessage(remoteJid, { text: "❌ Erro ao processar mídia: " + e.message });
         }
     }
 }
